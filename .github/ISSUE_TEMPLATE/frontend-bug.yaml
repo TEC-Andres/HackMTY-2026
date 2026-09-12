@@ -2,10 +2,19 @@ name: Frontend Bug
 description: Report a bug in the frontend.
 title: "[FRONTEND] [BUG] "
 labels: ["frontend", "bug"]
-assignees: ["TEC-Andres"]
+assignees: []
 projects: ["TEC-Andres/2"]
 
 body:
+  - type: input
+    id: issue-name
+    attributes:
+      label: Issue Name
+      description: Enter the name of the bug.
+      placeholder: "e.g., Fix navbar visual glitch on mobile"
+    validations:
+      required: true
+
   - type: dropdown
     id: priority
     attributes:

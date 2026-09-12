@@ -2,10 +2,19 @@ name: Frontend Task
 description: General frontend task (refactoring, UI polish, performance, etc.).
 title: "[FRONTEND] [TASK] "
 labels: ["frontend", "task"]
-assignees: ["TEC-Andres"]
+assignees: []
 projects: ["TEC-Andres/2"]
 
 body:
+  - type: input
+    id: issue-name
+    attributes:
+      label: Issue Name
+      description: Enter the name of the task.
+      placeholder: "e.g., Refactor button components to use design tokens"
+    validations:
+      required: true
+
   - type: dropdown
     id: priority
     attributes:

@@ -1,17 +1,27 @@
-name: Frontend Feature
-description: Request a new frontend feature.
-title: "[FRONTEND] [FEATURE] "
+name: Frontend Issue
+description: Create a new frontend issue with all required details.
+title: "[FRONTEND] "
 labels: ["frontend", "feature"]
 assignees: []
-projects: ["TEC-Andres/2"]
 
 body:
-  - type: input
-    id: issue-name
+  - type: markdown
     attributes:
-      label: Issue Name
-      description: Enter the name of the feature.
-      placeholder: "e.g., Add dark mode toggle to settings"
+      value: |
+        ### Frontend Issue Template
+        Fill out the details below to properly document this frontend task.
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: Select the category for this frontend task.
+      options:
+        - "New Feature"
+        - "Bug Fix"
+        - "UI/UX Polish"
+        - "Performance Optimization"
+        - "Refactoring"
     validations:
       required: true
 
@@ -45,14 +55,8 @@ body:
   - type: textarea
     id: issue-details
     attributes:
-      label: Feature Details
-      description: Provide a detailed description of the feature, requirements, and any design references.
-      placeholder: |
-        Description:
-        ...
-
-        Acceptance Criteria:
-        - [ ] ...
-        - [ ] ...
+      label: Specify Details
+      description: Provide detailed specifications, steps to reproduce, designs, or technical notes.
+      placeholder: "Provide detailed specifications here..."
     validations:
       required: true
