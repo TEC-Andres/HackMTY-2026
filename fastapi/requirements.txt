@@ -9,6 +9,9 @@ scipy>=1.11
 soundfile>=0.12
 joblib>=1.4
 
+# scripts/plot_nst_features.py only
+matplotlib>=3.8
+
 # Speech-to-Text / VAD framework (colab submodule).
 # The vendored framework in colab/hri/microservices/stt relies on the
 # upstream faster-whisper package for its Silero VAD implementation.
