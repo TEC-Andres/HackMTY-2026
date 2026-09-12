@@ -43,7 +43,7 @@ class Detector:
         model_path = self.artifacts_dir / "detector.joblib"
         scaler_path = self.artifacts_dir / "scaler.joblib"
         metadata_path = self.artifacts_dir / "metadata.json"
-        if not model_path.exists() or not scaler_path.exists():
+        if not model_path.exists() or not scaler_path.exists() or not metadata_path.exists():
             raise FileNotFoundError(
                 f"Artifacts for '{self.name}' not found in {self.artifacts_dir}. "
                 "Run `python scripts/train.py` from the fastapi/ directory first."
