@@ -21,6 +21,9 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+!/storage/framework/views/.gitkeep
 /vendor
 _ide_helper.php
 Homestead.json
