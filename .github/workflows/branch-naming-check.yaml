@@ -1,0 +1,31 @@
+name: Branch Naming Test
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+      - dev
+      - 'release/*' # Optional: ignore release branches if you use them
+
+jobs:
+  naming-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Branch Name
+        run: |
+          # Extract branch name from GITHUB_REF
+          BRANCH_NAME="${GITHUB_REF#refs/heads/}"
+          
+          # Allowed patterns
+          REGEX="^(feature|bugfix|translation|docs|structure|activity|evidences)/.+"
+          
+          echo "Verifying branch: $BRANCH_NAME"
+          
+          if [[ ! $BRANCH_NAME =~ $REGEX ]]; then
+            echo "::error title=Naming Convention Violation::Branch '$BRANCH_NAME' does not match the required format."
+            echo "Please rename your branch to one of: feature/, bugfix/, translation/, docs/, structure/, or activity/"
+            exit 1
+          fi
+          
+          echo "Branch naming convention satisfied!"

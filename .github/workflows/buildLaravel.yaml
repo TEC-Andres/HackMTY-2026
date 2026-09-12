@@ -1,0 +1,27 @@
+name: Build Laravel Application
+
+on:
+  push:
+    branches-ignore:
+      - main
+      - master
+      - dev
+      - 'release/*' 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5.0' 
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist --optimize-autoloader
+
+      - name: Run Laravel tests
+        run: php artisan test
