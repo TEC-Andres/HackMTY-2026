@@ -82,8 +82,8 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
             )
         if acoustic is None or any(np.isnan(v) for v in acoustic.values()):
             skipped_acoustic += 1
-            continue
-        features.update(acoustic)
+        else:
+            features.update(acoustic)
 
         features["anon_id"] = record.anon_id
         features["label"] = record.label
@@ -92,15 +92,21 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
 
     print(
         f"Loaded {len(rows)} calls ({skipped} skipped for insufficient turns, "
-        f"{skipped_acoustic} skipped for missing/insufficient audio)"
+        f"{skipped_acoustic} with missing/insufficient audio for acoustic features)"
     )
     return pd.DataFrame(rows)
 
 
 def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path) -> dict:
     """Fit one family's scaler + model and persist it under ``out_dir``."""
-    train = df[df.split == "train"]
-    val = df[df.split == "val"]
+    family_df = df.copy()
+    for col in feature_cols:
+        if col not in family_df.columns:
+            family_df[col] = np.nan
+    family_df = family_df.dropna(subset=feature_cols)
+
+    train = family_df[family_df.split == "train"]
+    val = family_df[family_df.split == "val"]
     if train.empty or val.empty:
         raise SystemExit("Need both train and val splits to fit and evaluate.")
 
