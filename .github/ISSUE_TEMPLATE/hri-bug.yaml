@@ -1,7 +1,7 @@
-name: Frontend Bug
-description: Report a bug in the frontend.
-title: "[FRONTEND] [BUG] "
-labels: ["frontend", "bug"]
+name: HRI Bug
+description: Report a bug in the HRI module.
+title: "[HRI] [BUG] "
+labels: ["hri", "bug"]
 assignees: []
 projects: ["TEC-Andres/2"]
 
@@ -37,7 +37,7 @@ body:
     id: issue-details
     attributes:
       label: Bug Details
-      description: Provide steps to reproduce, expected vs actual behavior, and screenshots if applicable.
+      description: Provide steps to reproduce, expected vs actual behavior, and any relevant logs.
       placeholder: |
         Steps to reproduce:
         1. ...
