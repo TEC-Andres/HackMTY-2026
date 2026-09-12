@@ -17,6 +17,7 @@ import logging
 import numpy as np
 from fastapi import APIRouter, HTTPException
 
+from app.core import config
 from app.schemas.detect import DetectRequest, DetectResponse, FamilyResult
 from app.services.acoustic_features import extract_acoustic_features
 from app.services.classifier import DETECTORS
@@ -25,6 +26,25 @@ from app.services.turns import caller_audio_and_turns_from_wav
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _depad_turns(turns: list[dict], pad_s: float) -> list[dict]:
+    """Undo VAD's speech_pad_ms before endpoint-acoustics analysis.
+
+    Live VAD (extract_turns_vad) pads every turn outward by config.VAD_SPEECH_PAD_MS
+    so downstream STT doesn't clip soft onsets/offsets - harmless for distribution_time's
+    gap statistics, but fatal for natural_speech_termination, which is anchored to the
+    exact acoustic offset: by the padded "end", the real energy drop already happened
+    before the measurement window starts. The training data (hackmty26/turns/*.json)
+    has no such pad, so we remove it here rather than retraining on padded boundaries.
+    """
+    depadded = []
+    for t in turns:
+        start, end = t["start"] + pad_s, t["end"] - pad_s
+        if end <= start:
+            continue  # turn was shorter than 2x the pad - nothing meaningful left
+        depadded.append({**t, "start": start, "end": end})
+    return depadded
 
 
 @router.post(
@@ -72,8 +92,15 @@ def detect(request: DetectRequest) -> DetectResponse:
     term_detector = DETECTORS["natural_speech_termination"]
     term_features = None
     if caller_audio is not None:
+        # Only the default "vad" mode's pad amount is known/config-driven here;
+        # "whisper" mode's internal VAD uses its own (unexposed) padding.
+        acoustic_turns = (
+            _depad_turns(turns, config.VAD_SPEECH_PAD_MS / 1000)
+            if config.TURNS_MODE != "whisper"
+            else turns
+        )
         term_features = extract_acoustic_features(
-            caller_audio, sample_rate, turns, request.channel
+            caller_audio, sample_rate, acoustic_turns, request.channel
         )
         if term_features is not None and any(np.isnan(v) for v in term_features.values()):
             term_features = None

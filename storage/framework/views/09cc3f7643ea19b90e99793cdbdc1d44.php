@@ -1,0 +1,2 @@
+<a <?php echo e($attributes->merge(['class' => 'block w-full px-4 py-2 text-start text-sm leading-5 text-gray-700 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 transition duration-150 ease-in-out'])); ?>><?php echo e($slot); ?></a>
+<?php /**PATH /Users/ethielfavilaalvarado/Downloads/Tec de Monterrey/HackMty/HackMTY-2026/laravel/resources/views/components/dropdown-link.blade.php ENDPATH**/ ?>
