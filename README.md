@@ -22,7 +22,7 @@
 | --- | --- | --- |
 | Ethiel Favila | [@efavilaa](https://github.com/efavilaa) | TBD |
 | Isabel Mejia Franco | TBD | TBD |
-| Catherine | TBD | TBD |
+| Catherine | [TBD](https://github.com/catherinegd7) | TBD |
 | Andrés Rodríguez Cantú | [@TEC-Andres](https://github.com/TEC-Andres) | `AII, Integration & Backend` |
 
 ## Credits
