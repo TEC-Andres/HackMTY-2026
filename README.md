@@ -19,7 +19,7 @@
 ## Team members
 
 | Name | GitHub | Role |
-| --- | --- | --- | -- -| 
+| --- | --- | --- | --- | 
 | Ethiel Favila | TBD | TBD |
 | Isabel Mejia Franco | TBD | TBD |
 | Catherine  | TBD | TBD |
