@@ -1,36 +1,17 @@
-name: Frontend Issue
-description: Create a new frontend issue with all required details.
-title: "[FRONTEND] "
-labels: ["frontend", "feature"]
+name: Frontend Bug
+description: Report a bug in the frontend.
+title: "[FRONTEND] [BUG] "
+labels: ["frontend", "bug"]
 assignees: []
+projects: ["TEC-Andres/2"]
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        ### Frontend Issue Template
-        Fill out the details below to properly document this frontend task.
-
   - type: input
     id: issue-name
     attributes:
       label: Issue Name
-      description: Enter the name of the issue.
+      description: Enter the name of the bug.
       placeholder: "e.g., Fix navbar visual glitch on mobile"
-    validations:
-      required: true
-
-  - type: dropdown
-    id: feature-type
-    attributes:
-      label: Feature Type
-      description: Select the category for this frontend task.
-      options:
-        - "New Feature"
-        - "Bug Fix"
-        - "UI/UX Polish"
-        - "Performance Optimization"
-        - "Refactoring"
     validations:
       required: true
 
@@ -64,8 +45,14 @@ body:
   - type: textarea
     id: issue-details
     attributes:
-      label: Specify Details
-      description: Provide detailed specifications, steps to reproduce, designs, or technical notes.
-      placeholder: "Provide detailed specifications here..."
+      label: Bug Details
+      description: Provide steps to reproduce, expected vs actual behavior, and screenshots if applicable.
+      placeholder: |
+        Steps to reproduce:
+        1. ...
+        2. ...
+
+        Expected: ...
+        Actual: ...
     validations:
       required: true
