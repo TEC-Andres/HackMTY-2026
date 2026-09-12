@@ -11,15 +11,6 @@ body:
         ### Frontend Issue Template
         Fill out the details below to properly document this frontend task.
 
-  - type: input
-    id: issue-name
-    attributes:
-      label: Issue Name
-      description: Enter the name of the issue.
-      placeholder: "e.g., Fix navbar visual glitch on mobile"
-    validations:
-      required: true
-
   - type: dropdown
     id: feature-type
     attributes:

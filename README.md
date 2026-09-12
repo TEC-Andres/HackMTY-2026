@@ -13,6 +13,12 @@
 ### Installation
 
 ### Local Setup
+#### Git settings
+In order to properly push, you'll need to run the following git script in order to not accidentally screw up with the rulesets.
+```sh
+git config core.hooksPath .githooks
+```
+Upon doing this, you will work on any of the issues placed on the [issues](https://github.com/TEC-Andres/HackMTY-2026/issues). You also need to keep an eye on the [Hack-Monterrey]() project in order to see what's needed and what can be omitted for now.
 
 ## Documentaion
 
