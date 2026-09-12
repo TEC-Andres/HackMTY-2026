@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+# Keep trained artifacts (detector.joblib, scaler.joblib, metadata.json) so the
+# service can be run immediately; remove this if you prefer training on deploy.
