@@ -35,6 +35,21 @@ class DetectRequest(BaseModel):
         return self
 
 
-class DetectResponse(BaseModel):
+class FamilyResult(BaseModel):
+    """One feature family's own verdict (e.g. distribution_time, natural_speech_termination)."""
+
     is_synthetic: bool
     confidence: float = Field(..., ge=0.0, le=1.0)
+
+
+class DetectResponse(BaseModel):
+    """``is_synthetic``/``confidence`` are the required challenge contract fields -
+    currently a temporary equal-weight average of whichever families ran (see
+    ``detect.py``), until the team decides how to weight families against each
+    other. ``breakdown`` carries each family's own independent verdict for
+    development/testing - it's additive and safe for the grader to ignore.
+    """
+
+    is_synthetic: bool
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    breakdown: dict[str, FamilyResult] = Field(default_factory=dict)
