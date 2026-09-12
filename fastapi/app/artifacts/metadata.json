@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-09-12T07:09:02.750337+00:00",
+  "trained_at": "2026-09-12T17:41:01.759761+00:00",
   "feature_cols": [
     "frac_gt5",
     "turn_dur_mean",
@@ -34,10 +34,15 @@
     "turn_dur_cv",
     "z_roc_mean",
     "z_roc_std",
-    "z_gap_std"
+    "z_gap_std",
+    "abruptness_db_mean",
+    "tail_ms_mean",
+    "floor_db",
+    "voiced_frac_near_end_mean",
+    "echo_delay_ms_mean"
   ],
-  "train_auc": 0.924,
-  "val_auc": 0.8291,
+  "train_auc": 0.992,
+  "val_auc": 0.9173,
   "train_calls": 282,
   "val_calls": 71,
   "model": "LogisticRegression(class_weight=balanced, C=1.0)",
