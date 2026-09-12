@@ -38,9 +38,15 @@ from app.services.acoustic_features import (  # noqa: E402
 )
 from app.services.features import FEATURE_COLS, extract_features  # noqa: E402
 
-#: Turn-timing features (features.py) + endpoint-acoustics features (acoustic_features.py).
-#: Persisted into metadata.json so the FastAPI service builds the same vector at inference.
-COMBINED_FEATURE_COLS = FEATURE_COLS + ACOUSTIC_FEATURE_COLS
+#: Each feature family gets its own scaler + model, trained and scored independently
+#: (see app/services/classifier.py). /detect runs every family whose inputs are
+#: available and reports each one's own verdict, rather than one combined score.
+#: Add a new family here (and its extract_*() in build_dataset below) without
+#: touching the others.
+FAMILIES: dict[str, list[str]] = {
+    "distribution_time": FEATURE_COLS,
+    "natural_speech_termination": ACOUSTIC_FEATURE_COLS,
+}
 
 
 def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
@@ -91,6 +97,47 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path) -> dict:
+    """Fit one family's scaler + model and persist it under ``out_dir``."""
+    train = df[df.split == "train"]
+    val = df[df.split == "val"]
+    if train.empty or val.empty:
+        raise SystemExit("Need both train and val splits to fit and evaluate.")
+
+    y_train = (train.label == "synthetic").astype(int).values
+    y_val = (val.label == "synthetic").astype(int).values
+
+    scaler = StandardScaler()
+    x_train = scaler.fit_transform(train[feature_cols].values)
+    x_val = scaler.transform(val[feature_cols].values)
+
+    model = LogisticRegression(
+        max_iter=5000, class_weight="balanced", C=1.0, random_state=0
+    )
+    model.fit(x_train, y_train)
+
+    train_auc = roc_auc_score(y_train, model.predict_proba(x_train)[:, 1])
+    val_auc = roc_auc_score(y_val, model.predict_proba(x_val)[:, 1])
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(model, out_dir / "detector.joblib")
+    joblib.dump(scaler, out_dir / "scaler.joblib")
+    metadata = {
+        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "feature_cols": feature_cols,
+        "train_auc": round(float(train_auc), 4),
+        "val_auc": round(float(val_auc), 4),
+        "train_calls": int(len(train)),
+        "val_calls": int(len(val)),
+        "model": "LogisticRegression(class_weight=balanced, C=1.0)",
+        "label_positive": "synthetic",
+    }
+    (out_dir / "metadata.json").write_text(
+        json.dumps(metadata, indent=2), encoding="utf-8"
+    )
+    return metadata
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -103,50 +150,22 @@ def main() -> None:
         "--out-dir",
         type=Path,
         default=config.ARTIFACTS_DIR,
-        help="Where to write detector.joblib, scaler.joblib, metadata.json.",
+        help="Where to write <family>/detector.joblib, scaler.joblib, metadata.json.",
     )
     args = parser.parse_args()
 
     df = build_dataset(args.hackmty26_dir)
-    train = df[df.split == "train"]
-    val = df[df.split == "val"]
-    if train.empty or val.empty:
-        raise SystemExit("Need both train and val splits to fit and evaluate.")
 
-    y_train = (train.label == "synthetic").astype(int).values
-    y_val = (val.label == "synthetic").astype(int).values
+    for name, feature_cols in FAMILIES.items():
+        metadata = train_family(df, feature_cols, args.out_dir / name)
+        print(
+            f"[{name}] train AUC: {metadata['train_auc']:.3f}  "
+            f"val AUC: {metadata['val_auc']:.3f}  "
+            f"(train={metadata['train_calls']} val={metadata['val_calls']} "
+            f"features={len(feature_cols)})"
+        )
 
-    scaler = StandardScaler()
-    x_train = scaler.fit_transform(train[COMBINED_FEATURE_COLS].values)
-    x_val = scaler.transform(val[COMBINED_FEATURE_COLS].values)
-
-    model = LogisticRegression(
-        max_iter=5000, class_weight="balanced", C=1.0, random_state=0
-    )
-    model.fit(x_train, y_train)
-
-    train_auc = roc_auc_score(y_train, model.predict_proba(x_train)[:, 1])
-    val_auc = roc_auc_score(y_val, model.predict_proba(x_val)[:, 1])
-    print(f"Train AUC: {train_auc:.3f}  Val AUC: {val_auc:.3f}")
-    print(f"Train calls: {len(train)}  Val calls: {len(val)}")
-
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, args.out_dir / "detector.joblib")
-    joblib.dump(scaler, args.out_dir / "scaler.joblib")
-    metadata = {
-        "trained_at": datetime.now(timezone.utc).isoformat(),
-        "feature_cols": COMBINED_FEATURE_COLS,
-        "train_auc": round(float(train_auc), 4),
-        "val_auc": round(float(val_auc), 4),
-        "train_calls": int(len(train)),
-        "val_calls": int(len(val)),
-        "model": "LogisticRegression(class_weight=balanced, C=1.0)",
-        "label_positive": "synthetic",
-    }
-    (args.out_dir / "metadata.json").write_text(
-        json.dumps(metadata, indent=2), encoding="utf-8"
-    )
-    print(f"Saved artifacts to {args.out_dir}")
+    print(f"Saved artifacts under {args.out_dir}/<family>/")
 
 
 if __name__ == "__main__":

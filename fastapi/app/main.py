@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
-from app.services.classifier import detector
+from app.services.classifier import load_all
 from app.services.turns import warmup
 
 logging.basicConfig(
@@ -24,11 +24,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Load the model + warm up the turn extractor at startup.
-    try:
-        detector.load()
-    except FileNotFoundError as exc:
-        logger.warning("%s", exc)
+    # Load every registered feature-family detector + warm up the turn extractor.
+    load_all()
     warmup()
     yield
 
