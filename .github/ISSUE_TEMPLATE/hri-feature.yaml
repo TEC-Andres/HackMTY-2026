@@ -1,0 +1,49 @@
+name: HRI Feature
+description: Request a new HRI feature.
+title: "[HRI] [FEATURE] "
+labels: ["hri", "feature"]
+assignees: []
+projects: ["TEC-Andres/2"]
+
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Select the urgency level.
+      options:
+        - Low
+        - Medium
+        - High
+        - Critical
+    validations:
+      required: true
+
+  - type: dropdown
+    id: assignee
+    attributes:
+      label: Who will work on this?
+      description: Choose the team member assigned to this issue.
+      options:
+        - "Ethiel Favila"
+        - "Isabel Mejia Franco"
+        - "Catherine"
+        - "Andrés Rodríguez Cantú"
+        - "Unassigned"
+    validations:
+      required: false
+
+  - type: textarea
+    id: issue-details
+    attributes:
+      label: Feature Details
+      description: Provide a detailed description of the feature, requirements, and any relevant context.
+      placeholder: |
+        Description:
+        ...
+
+        Acceptance Criteria:
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
