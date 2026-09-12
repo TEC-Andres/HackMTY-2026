@@ -1,0 +1,16 @@
+# FastAPI detection service (Altur / HackMTY 2026)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.0
+numpy>=1.26
+pandas>=2.0
+scikit-learn>=1.4
+scipy>=1.11
+soundfile>=0.12
+joblib>=1.4
+
+# Speech-to-Text / VAD framework (colab submodule).
+# The vendored framework in colab/hri/microservices/stt relies on the
+# upstream faster-whisper package for its Silero VAD implementation.
+faster-whisper>=1.1.0
+ctranslate2>=4.0.0,<5.0.0
