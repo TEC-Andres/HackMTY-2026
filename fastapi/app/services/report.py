@@ -29,7 +29,7 @@ def _block(title: str, result: Any | None) -> str:
     return f"{title}\n{_HEADER}\n{_SEPARATOR}\n{row}\n"
 
 
-def render_comparison(timing: Any | None, lexical: Any, ensemble: Any) -> str:
+def render_comparison(timing: Any | None, lexical: Any | None, ensemble: Any) -> str:
     """Render the three verdicts as the comparison table."""
     return "\n".join(
         [

@@ -65,7 +65,12 @@ class CompareResponse(BaseModel):
         description="Turn-taking detector; null if the clip had too few turns or "
         "the timing model is not loaded.",
     )
-    lexical: LexicalResult
+    lexical: LexicalResult | None = Field(
+        default=None,
+        description="Lexical (#21) detector; null if the lexical model is not "
+        "loaded (it is not part of the current shipped ensemble - see "
+        "app.services.lexical) or the clip had no usable transcript.",
+    )
     resonance: ResonanceResult | None = Field(
         default=None,
         description="Formant/pitch-physics detector; null if the clip had too "

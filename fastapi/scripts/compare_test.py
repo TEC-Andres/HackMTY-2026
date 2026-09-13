@@ -37,7 +37,7 @@ import requests
 FASTAPI_DIR = Path(__file__).resolve().parents[1]
 REPO_ROOT = FASTAPI_DIR.parent
 MANIFEST = REPO_ROOT / "hackmty26" / "manifest.csv"
-AUDIO_DIR = REPO_ROOT / "audio"
+AUDIO_DIR = REPO_ROOT / "hackmty26" / "audio"
 
 
 def load_manifest(split: str | None) -> list[dict]:

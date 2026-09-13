@@ -10,7 +10,10 @@ orthogonal evidence:
 * **timing** — ``tiemposDeDistribucion``: turn-taking dynamics / VAD features
   served by the existing ``POST /detect/timeDiff`` model.
 * **lexical** — issue #21: STT transcript -> the five lexical variables ->
-  PLS-DA + VIP model (``app.services.lexical``).
+  PLS-DA + VIP model (``app.services.lexical``). Optional: not part of the
+  current shipped ensemble (timeDiff + NST + resonance), so it is skipped
+  gracefully (stays ``None``) whenever its model artifact isn't loaded,
+  instead of failing the whole request - see ``_run_lexical``.
 
 The response keeps both verdicts, whether they agree, and a mean-probability
 ensemble. The point is comparison/diagnostics, so it is more expensive than
@@ -87,6 +90,23 @@ def _run_timing(request: CompareRequest) -> TimingResult | None:
         synthetic_probability=round(probability, 4),
         n_turns=n_turns,
     )
+
+
+def _run_lexical(request: CompareRequest) -> LexicalResult | None:
+    """Best-effort lexical (#21) verdict; ``None`` when it cannot be computed.
+
+    Not part of the current shipped ensemble (timeDiff + NST + resonance), so
+    this stays optional like timing/resonance instead of failing the whole
+    request when the model artifact isn't present - see
+    app.services.lexical.LexicalDetector.ready.
+    """
+    if not lexical_detector.ready:
+        return None
+
+    lexical_payload, _segments = lexical_detector.predict_from_audio(
+        request.audio_base64, request.channel
+    )
+    return LexicalResult(**lexical_payload)
 
 
 def _run_resonance(request: CompareRequest) -> ResonanceResult | None:
@@ -271,12 +291,14 @@ def detect_nst(
 @router.post(
     "/detect/STTLexicalAnalysis",
     response_model=None,
-    summary="Compare the timing detector with the lexical (#21) detector",
+    summary="Ensemble verdict: timing + resonance, plus lexical (#21) when available",
     description=(
         "Returns the ensemble verdict `{is_synthetic, confidence}`. Pass "
         "`?verbose=true` for the per-detector breakdown (timing, lexical, "
-        "agreement, contributions and report). Use `?format=text` for the "
-        "plain comparison table."
+        "resonance, agreement, contributions and report). Use `?format=text` "
+        "for the plain comparison table. The lexical detector is optional: "
+        "if its model artifact isn't loaded it is skipped and stays `null` "
+        "in the response instead of failing the request."
     ),
 )
 def compare(
@@ -302,26 +324,18 @@ def compare(
         logger.exception("Timing detector failed")
         timing = None
 
-    # ── lexical detector (required) ────────────────────────────────────────
-    if not lexical_detector.ready:
-        raise HTTPException(
-            status_code=503,
-            detail="Lexical detector not loaded. Train it in "
-            "_playingGround/lexicalAnalysis (artifacts/lexical_model.joblib).",
-        )
+    # ── lexical detector (best effort, like timing/resonance) ──────────────
+    # Not part of the current shipped ensemble - skipped gracefully (stays
+    # None) instead of failing the whole request when its model artifact
+    # isn't present. See _run_lexical.
+    lexical: LexicalResult | None
     try:
-        lexical_payload, _segments = lexical_detector.predict_from_audio(
-            request.audio_base64, request.channel
-        )
+        lexical = _run_lexical(request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 - a lexical failure must not kill the rest
         logger.exception("Lexical analysis failed")
-        raise HTTPException(
-            status_code=500, detail=f"Lexical analysis failed: {exc}"
-        ) from exc
-
-    lexical = LexicalResult(**lexical_payload)
+        lexical = None
 
     # ── resonance detector (best effort, like timing) ──────────────────────
     resonance: ResonanceResult | None
@@ -335,12 +349,19 @@ def compare(
 
     # ── comparison + mean-probability ensemble ─────────────────────────────
     # `agreement` stays timing-vs-lexical only (unchanged) - resonance only
-    # joins the probability average below.
-    probabilities = [lexical.synthetic_probability]
-    if timing is not None:
-        probabilities.append(timing.synthetic_probability)
-    if resonance is not None:
-        probabilities.append(resonance.synthetic_probability)
+    # joins the probability average below. Lexical is optional (see
+    # _run_lexical), so it only contributes when actually available.
+    probabilities = [
+        result.synthetic_probability
+        for result in (timing, lexical, resonance)
+        if result is not None
+    ]
+    if not probabilities:
+        raise HTTPException(
+            status_code=422,
+            detail="None of the detectors (timing, lexical, resonance) could "
+            "be computed for this clip.",
+        )
     ensemble_probability = sum(probabilities) / len(probabilities)
     ensemble = DetectorResult(
         is_synthetic=ensemble_probability >= 0.5,
@@ -348,7 +369,9 @@ def compare(
         synthetic_probability=round(ensemble_probability, 4),
     )
     agreement = (
-        None if timing is None else timing.is_synthetic == lexical.is_synthetic
+        None
+        if timing is None or lexical is None
+        else timing.is_synthetic == lexical.is_synthetic
     )
 
     report = render_comparison(timing, lexical, ensemble)

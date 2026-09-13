@@ -42,4 +42,10 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    # Prosody detection microservice (fastapi/, HackMTY-2026)
+    'fastapi' => [
+        'base_url' => env('FASTAPI_BASE_URL', 'http://127.0.0.1:8000'),
+        'timeout' => env('FASTAPI_TIMEOUT', 120),
+    ],
+
 ];
