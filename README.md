@@ -5,7 +5,7 @@
 </h1>
 
 <!-- Summary -->
-<p align="center"><br>Prodosy</br> — Detecting Synthetic Calls. <i>By La Birriería 94</i></p>
+<p align="center"><b>Prodosy</b> — Detecting Synthetic Calls. <i>By La Birriería 94</i></p>
 
 ## Table of contents
 - [Getting started](#getting-started)
