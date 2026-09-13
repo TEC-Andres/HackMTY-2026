@@ -28,9 +28,12 @@ def series_from_segments(ch0: np.ndarray, sr: int, segments):
     """segments: list of (start_s, end_s) tuples on ch0.
     Returns concatenated (f0s, f1s, f2s) over voiced frames, plus a list
     of per-segment raw (uniformly-spaced) F1 trajectories with their true
-    dt, for periodicity analysis."""
+    dt, for periodicity analysis, plus per-segment voiced F1/F2 arrays so
+    jitter can be differenced within a segment rather than across
+    segment boundaries."""
     f0s, f1s, f2s = [], [], []
     raw_seg_f1s = []  # list of (f1_array, dt) — unfiltered, uniform spacing
+    seg_f1s, seg_f2s = [], []  # per-segment voiced frames
 
     for start_s, end_s in segments:
         s, e = int(start_s * sr), int(end_s * sr)
@@ -44,6 +47,7 @@ def series_from_segments(ch0: np.ndarray, sr: int, segments):
         raw_f1 = np.array([formant.get_value_at_time(1, tt) or np.nan for tt in ts])
         if len(ts) > 1:
             raw_seg_f1s.append((raw_f1, float(np.mean(np.diff(ts)))))
+        seg_f1, seg_f2 = [], []
         for i, tt in enumerate(ts):
             f0 = pitch.get_value_at_time(tt)
             if not f0 or np.isnan(f0):
@@ -55,8 +59,30 @@ def series_from_segments(ch0: np.ndarray, sr: int, segments):
             f0s.append(f0)
             f1s.append(f1)
             f2s.append(f2)
+            seg_f1.append(f1)
+            seg_f2.append(f2)
+        if seg_f1:
+            seg_f1s.append(np.array(seg_f1))
+            seg_f2s.append(np.array(seg_f2))
 
-    return np.array(f0s), np.array(f1s), np.array(f2s), raw_seg_f1s
+    return (
+        np.array(f0s),
+        np.array(f1s),
+        np.array(f2s),
+        raw_seg_f1s,
+        seg_f1s,
+        seg_f2s,
+    )
+
+
+def within_segment_diffs(seg_series):
+    """Absolute frame-to-frame differences, computed independently per segment.
+
+    Differencing the cross-segment concatenation would add a spurious jump
+    between each segment's last frame and the next segment's first, so jitter
+    would reflect segmentation/silence rather than within-segment motion."""
+    diffs = [np.abs(np.diff(series)) for series in seg_series if len(series) > 1]
+    return np.concatenate(diffs) if diffs else np.array([], dtype=float)
 
 
 def vocoder_periodicity_score(raw_seg_f1s):
@@ -69,7 +95,6 @@ def vocoder_periodicity_score(raw_seg_f1s):
         if valid.sum() < 30 or dt <= 0:
             continue
         f1 = np.interp(np.arange(len(raw_f1)), np.flatnonzero(valid), raw_f1[valid])
-            continue
         d = np.diff(f1)
         d = d - d.mean()
         spec = np.abs(np.fft.rfft(d))
@@ -88,12 +113,16 @@ FEATURE_NAMES = [
 
 
 def features_from_segments(ch0: np.ndarray, sr: int, segments) -> dict:
-    f0s, f1s, f2s, raw_seg_f1s = series_from_segments(ch0, sr, segments)
+    f0s, f1s, f2s, raw_seg_f1s, seg_f1s, seg_f2s = series_from_segments(
+        ch0, sr, segments
+    )
     if len(f1s) < MIN_VOICED_FRAMES:
         return {"n_voiced_frames": len(f1s)}
 
-    d1 = np.abs(np.diff(f1s))
-    d2 = np.abs(np.diff(f2s))
+    d1 = within_segment_diffs(seg_f1s)
+    d2 = within_segment_diffs(seg_f2s)
+    if len(d1) == 0 or len(d2) == 0:
+        return {"n_voiced_frames": len(f1s)}
     third = max(len(f1s) // 3, 1)
     drift_f1 = f1s[-third:].mean() - f1s[:third].mean()
 
