@@ -1,0 +1,6 @@
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
+praat-parselmouth>=0.4
+soundfile>=0.12
+joblib>=1.4
