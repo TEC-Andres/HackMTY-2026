@@ -1,4 +1,4 @@
-"""Pydantic models for ``POST /detect/acousticEnsemble``."""
+"""Pydantic models for ``POST /detect``."""
 
 from __future__ import annotations
 

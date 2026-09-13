@@ -1,4 +1,4 @@
-"""``POST /detect/acousticEnsemble`` — combine timing, endpoint-acoustics and
+"""``POST /detect`` — combine timing, endpoint-acoustics and
 resonance-stability (no lexical/STT - see compare.py for that combination)
 with an AUC-weighted average, so a family that's proven more accurate on
 held-out validation data counts for more than one that's barely better than
@@ -89,7 +89,7 @@ def _detector_weight(detector) -> float:
 
 
 @router.post(
-    "/detect/acousticEnsemble",
+    "/detect",
     response_model=None,
     summary="Combine timing, endpoint-acoustics and resonance (no lexical)",
     description=(
@@ -199,7 +199,7 @@ def acoustic_ensemble(
     )
 
 
-@router.get("/detect/acousticEnsemble/health", summary="All 3 acoustic detectors' readiness")
+@router.get("/detect/health", summary="All 3 acoustic detectors' readiness")
 def acoustic_ensemble_health() -> dict[str, object]:
     return {
         "status": "ok",
