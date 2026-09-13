@@ -23,3 +23,12 @@ if (resultadosRoot) {
         },
     );
 }
+
+const detectRoot = document.getElementById('detect-root');
+if (detectRoot) {
+    Promise.all([import('react'), import('react-dom/client'), import('./detect/DetectDashboard')]).then(
+        ([{ default: React }, { createRoot }, { default: DetectDashboard }]) => {
+            createRoot(detectRoot).render(React.createElement(DetectDashboard));
+        },
+    );
+}

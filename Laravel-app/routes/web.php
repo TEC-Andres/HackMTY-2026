@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DetectController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProsodyController;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,10 @@ Route::get('/', function () {
 Route::get('/subir_archivo', [ProsodyController::class, 'showUpload'])->name('prosody.upload');
 Route::post('/subir_archivo', [ProsodyController::class, 'analyze'])->name('prosody.analyze');
 Route::get('/subir_archivo/resultados', [ProsodyController::class, 'showResultados'])->name('prosody.resultados');
+
+// Detect: live dashboard for FastAPI's POST /detect batch evaluations (HackMTY-2026)
+Route::get('/detect', [DetectController::class, 'show'])->name('detect.show');
+Route::get('/detect/data', [DetectController::class, 'data'])->name('detect.data');
 
 Route::get('/dashboard', function () {
     return view('dashboard');

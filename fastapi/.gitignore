@@ -4,3 +4,7 @@ __pycache__/
 venv/
 # Keep trained artifacts (detector.joblib, scaler.joblib, metadata.json) so the
 # service can be run immediately; remove this if you prefer training on deploy.
+
+# Runtime output of scripts/check_endpoint.py (GET /detect/report), regenerated per run.
+reports/latest_run.json
+reports/latest_run.tmp
