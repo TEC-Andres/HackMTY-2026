@@ -2,8 +2,9 @@
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import compare, detect
+from app.api.v1.endpoints import compare, detect, resonance
 
 api_router = APIRouter()
 api_router.include_router(detect.router, tags=["detect"])
 api_router.include_router(compare.router, tags=["compare"])
+api_router.include_router(resonance.router, tags=["resonance"])
