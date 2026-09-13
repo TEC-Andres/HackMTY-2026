@@ -1,0 +1,20 @@
+{
+  "trained_at": "2026-09-13T00:26:18.862662+00:00",
+  "feature_cols": [
+    "abruptness_db_mean",
+    "tail_ms_mean",
+    "floor_db",
+    "voiced_frac_near_end_mean",
+    "echo_delay_ms_mean",
+    "voiced_frac_near_end_median",
+    "voiced_frac_near_end_std",
+    "voiced_frac_near_end_range",
+    "voiced_frac_near_end_iqr"
+  ],
+  "train_auc": 0.9706,
+  "val_auc": 0.8521,
+  "train_calls": 282,
+  "val_calls": 71,
+  "model": "LogisticRegression(class_weight=balanced, C=1.0)",
+  "label_positive": "synthetic"
+}
