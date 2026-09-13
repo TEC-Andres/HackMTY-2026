@@ -40,6 +40,7 @@ The available models are:
 | timeDiff | 0.720 |
 | resonancia | 0.760 |
 | STTLexicalAnalysis | 0.750 |
+| NST | 0.803 |
 
 ## Documentaion
 
@@ -47,9 +48,9 @@ The available models are:
 
 | Name | GitHub | Role |
 | --- | --- | --- |
-| Ethiel Favila | [@efavilaa](https://github.com/efavilaa) | TBD |
-| Isabel Mejia Franco | [@IsaMejiaF](https://github.com/IsaMejiaF ) | TBD |
-| Catherine | [catherinegd7](https://github.com/catherinegd7) | TBD |
+| Ethiel Favila | [@efavilaa](https://github.com/efavilaa) | `HRI, Integration, Backend & Frontend` |
+| Isabel Mejia Franco | [@IsaMejiaF](https://github.com/IsaMejiaF ) | `Frontend & Web Design` |
+| Catherine | [catherinegd7](https://github.com/catherinegd7) | `HRI, Integration & Backend` |
 | Andrés Rodríguez Cantú | [@TEC-Andres](https://github.com/TEC-Andres) | `HRI, Integration & Backend` |
 
 ## Credits
