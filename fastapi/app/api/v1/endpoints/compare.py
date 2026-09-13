@@ -1,0 +1,247 @@
+"""Timing-based detection endpoints.
+
+* ``POST /detect/timeDiff`` — turn-taking dynamics only.
+* ``POST /detect/STTLexicalAnalysis`` — side-by-side timing vs lexical detectors.
+
+The two signals answer the same question ("is the caller synthetic?") from
+orthogonal evidence:
+
+* **timing** — ``tiemposDeDistribucion``: turn-taking dynamics / VAD features
+  served by the existing ``POST /detect/timeDiff`` model.
+* **lexical** — issue #21: STT transcript -> the five lexical variables ->
+  PLS-DA + VIP model (``app.services.lexical``).
+
+The response keeps both verdicts, whether they agree, and a mean-probability
+ensemble. The point is comparison/diagnostics, so it is more expensive than
+``/detect/timeDiff``: it runs full speech-to-text on the clip.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import PlainTextResponse
+
+from app.schemas.compare import (
+    CompareRequest,
+    CompareResponse,
+    DetectorResult,
+    LexicalResult,
+    TimingResult,
+)
+from app.schemas.detect import (
+    DetectRequest,
+    DetectResponse,
+    DetectVerboseResponse,
+    Turn,
+)
+from app.services.classifier import DETECTORS
+from app.services.features import extract_features
+from app.services.lexical import lexical_detector
+from app.services.report import render_comparison
+from app.services.turns import caller_turns_from_wav
+
+logger = logging.getLogger(__name__)
+router = APIRouter()
+
+#: Turn-taking ("distribution_time") family, served by POST /detect/timeDiff.
+detector = DETECTORS["distribution_time"]
+
+
+def _run_timing(request: CompareRequest) -> TimingResult | None:
+    """Best-effort turn-taking verdict; ``None`` when it cannot be computed."""
+    if request.turns is not None:
+        turns = [turn.model_dump() for turn in request.turns]
+    else:
+        turns = caller_turns_from_wav(request.audio_base64, request.channel)
+
+    features = extract_features(turns, request.channel)
+    if features is None or not detector.ready:
+        return None
+
+    is_synthetic, confidence, probability = detector.predict(features)
+    n_turns = len(
+        [t for t in turns if int(t.get("channel", -1)) == request.channel]
+    )
+    return TimingResult(
+        is_synthetic=is_synthetic,
+        confidence=round(confidence, 4),
+        synthetic_probability=round(probability, 4),
+        n_turns=n_turns,
+    )
+
+
+@router.post(
+    "/detect/timeDiff",
+    response_model=None,
+    summary="Classify a caller as human or synthetic",
+    description=(
+        "Returns `{is_synthetic, confidence}`. Pass `?verbose=true` to also get "
+        "the caller turns and the timing feature vector."
+    ),
+)
+def detect_time_diff(
+    request: DetectRequest,
+    verbose: bool = Query(
+        False, description="Include turns and features alongside the verdict."
+    ),
+) -> DetectResponse | DetectVerboseResponse:
+    # 1. Obtain caller turns: either supplied (testing) or derived via the
+    #    colab framework's VAD from the raw audio (production path).
+    if request.turns is not None:
+        turns = [turn.model_dump() for turn in request.turns]
+        logger.info("Using %d turns supplied in request", len(turns))
+    else:
+        try:
+            turns = caller_turns_from_wav(request.audio_base64 or "", request.channel)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 - surface framework failures clearly
+            logger.exception("Turn extraction failed")
+            raise HTTPException(
+                status_code=500, detail=f"Turn extraction failed: {exc}"
+            ) from exc
+
+    # 2. Feature engineering (same maths as the playground).
+    features = extract_features(turns, request.channel)
+    if features is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Not enough caller turn structure to classify (need >=4 turns).",
+        )
+
+    # 3. Classify.
+    if not detector.ready:
+        raise HTTPException(
+            status_code=503,
+            detail="Detector not loaded. Run scripts/train.py to build artifacts.",
+        )
+    is_synthetic, confidence, _probability = detector.predict(features)
+    verdict = DetectResponse(
+        is_synthetic=is_synthetic, confidence=round(confidence, 4)
+    )
+    if not verbose:
+        return verdict
+
+    caller_turns = [
+        turn for turn in turns if int(turn.get("channel", -1)) == request.channel
+    ]
+    return DetectVerboseResponse(
+        **verdict.model_dump(),
+        channel=request.channel,
+        n_turns=len(caller_turns),
+        turns=[Turn(**turn) for turn in caller_turns],
+        features=features,
+    )
+
+
+@router.post(
+    "/detect/STTLexicalAnalysis",
+    response_model=None,
+    summary="Compare the timing detector with the lexical (#21) detector",
+    description=(
+        "Returns the ensemble verdict `{is_synthetic, confidence}`. Pass "
+        "`?verbose=true` for the per-detector breakdown (timing, lexical, "
+        "agreement, contributions and report). Use `?format=text` for the "
+        "plain comparison table."
+    ),
+)
+def compare(
+    request: CompareRequest,
+    format: str = Query(
+        "json",
+        pattern="^(json|text)$",
+        description="json (default) or text for the plain comparison table.",
+    ),
+    verbose: bool = Query(
+        False,
+        description="Return the full per-detector breakdown instead of just "
+        "the ensemble verdict.",
+    ),
+) -> CompareResponse | DetectResponse | PlainTextResponse:
+    # ── timing detector (best effort) ──────────────────────────────────────
+    timing: TimingResult | None
+    try:
+        timing = _run_timing(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - a timing failure must not kill lexical
+        logger.exception("Timing detector failed")
+        timing = None
+
+    # ── lexical detector (required) ────────────────────────────────────────
+    if not lexical_detector.ready:
+        raise HTTPException(
+            status_code=503,
+            detail="Lexical detector not loaded. Train it in "
+            "_playingGround/lexicalAnalysis (artifacts/lexical_model.joblib).",
+        )
+    try:
+        lexical_payload, _segments = lexical_detector.predict_from_audio(
+            request.audio_base64, request.channel
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Lexical analysis failed")
+        raise HTTPException(
+            status_code=500, detail=f"Lexical analysis failed: {exc}"
+        ) from exc
+
+    lexical = LexicalResult(**lexical_payload)
+
+    # ── comparison + mean-probability ensemble ─────────────────────────────
+    probabilities = [lexical.synthetic_probability]
+    if timing is not None:
+        probabilities.append(timing.synthetic_probability)
+    ensemble_probability = sum(probabilities) / len(probabilities)
+    ensemble = DetectorResult(
+        is_synthetic=ensemble_probability >= 0.5,
+        confidence=round(max(ensemble_probability, 1 - ensemble_probability), 4),
+        synthetic_probability=round(ensemble_probability, 4),
+    )
+    agreement = (
+        None if timing is None else timing.is_synthetic == lexical.is_synthetic
+    )
+
+    report = render_comparison(timing, lexical, ensemble)
+    logger.info("\n%s", report)
+    if format == "text":
+        return PlainTextResponse(report)
+
+    if not verbose:
+        return DetectResponse(
+            is_synthetic=ensemble.is_synthetic,
+            confidence=ensemble.confidence,
+        )
+
+    return CompareResponse(
+        timing=timing,
+        lexical=lexical,
+        agreement=agreement,
+        ensemble=ensemble,
+        report=report,
+    )
+
+
+@router.get("/detect/timeDiff/health", summary="Service and model readiness")
+def time_diff_health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "detector_ready": detector.ready,
+        "features": len(detector.feature_cols),
+        "val_auc": detector.metadata.get("val_auc"),
+    }
+
+
+@router.get("/detect/STTLexicalAnalysis/health", summary="Both detectors' readiness")
+def compare_health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "timing_ready": detector.ready,
+        "timing_val_auc": detector.metadata.get("val_auc"),
+        "lexical_ready": lexical_detector.ready,
+        "lexical_cv_auc": lexical_detector.metadata.get("plsda_cv_auc_mean"),
+        "lexical_pls_components": lexical_detector.metadata.get("pls_components"),
+    }

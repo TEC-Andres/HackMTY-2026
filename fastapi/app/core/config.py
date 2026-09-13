@@ -34,6 +34,17 @@ COLAB_STT_DIR = _env_path(
     "COLAB_STT_DIR", COLAB_DIR / "hri" / "microservices" / "stt"
 )
 
+#: The vendored local STT pipeline (faster-whisper transcription + models/).
+#: Added to ``sys.path`` by ``app.services.stt`` for the lexical endpoint.
+COLAB_LOCAL_PIPELINE_DIR = _env_path(
+    "COLAB_LOCAL_PIPELINE_DIR", COLAB_DIR / "_localPipeline"
+)
+
+#: Issue #21 lexical analysis: shared feature code + trained lexical model.
+LEXICAL_DIR = _env_path("LEXICAL_DIR", REPO_ROOT / "_playingGround" / "lexicalAnalysis")
+LEXICAL_MODEL_PATH = LEXICAL_DIR / "artifacts" / "lexical_model.joblib"
+LEXICAL_METADATA_PATH = LEXICAL_DIR / "artifacts" / "metadata.json"
+
 #: Serialized model + scaler produced by ``scripts/train.py``.
 ARTIFACTS_DIR = _env_path("ARTIFACTS_DIR", FASTAPI_DIR / "app" / "artifacts")
 MODEL_PATH = ARTIFACTS_DIR / "detector.joblib"
@@ -51,3 +62,9 @@ TURNS_MODE = os.getenv("TURNS_MODE", "vad").lower()
 VAD_MIN_SILENCE_MS = int(os.getenv("VAD_MIN_SILENCE_MS", "500"))
 VAD_SPEECH_PAD_MS = int(os.getenv("VAD_SPEECH_PAD_MS", "100"))
 VAD_THRESHOLD = float(os.getenv("VAD_THRESHOLD", "0.5"))
+
+#: Lexical endpoint STT (issue #21). Multilingual model for Spanish telephony.
+STT_MODEL = os.getenv("STT_MODEL", "small")
+STT_LANGUAGE = os.getenv("STT_LANGUAGE", "es")
+STT_BEAM_SIZE = int(os.getenv("STT_BEAM_SIZE", "5"))
+

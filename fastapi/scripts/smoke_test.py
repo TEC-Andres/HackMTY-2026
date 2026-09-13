@@ -2,8 +2,8 @@
 """Smoke test for the detection service.
 
 Exercises:
-  1. ``POST /detect`` with real (val-split) turns -> compares to manifest label.
-  2. ``GET /detect/health``.
+  1. ``POST /detect/timeDiff`` with real (val-split) turns -> compares to label.
+  2. ``GET /detect/timeDiff/health``.
   3. The colab-framework VAD turn extractor on a local WAV (no model needed).
 
 Run from the ``fastapi/`` directory:  python scripts/smoke_test.py
@@ -27,7 +27,7 @@ from app.services.turns import caller_turns_from_wav  # noqa: E402
 
 
 def test_detect_with_turns(client: TestClient) -> None:
-    print("\n=== 1. /detect with precomputed turns ===")
+    print("\n=== 1. /detect/timeDiff with precomputed turns ===")
     manifest = config.HACKMTY26_DIR / "manifest.csv"
     lines = manifest.read_text(encoding="utf-8").splitlines()[1:]
     val_rows = [ln.split(",") for ln in lines if ln.split(",")[2] == "val"]
@@ -39,7 +39,7 @@ def test_detect_with_turns(client: TestClient) -> None:
                 encoding="utf-8"
             )
         )["turns"]
-        response = client.post("/detect", json={"turns": turns})
+        response = client.post("/detect/timeDiff", json={"turns": turns})
         response.raise_for_status()
         body = response.json()
         correct = body["is_synthetic"] == (label == "synthetic")
@@ -52,8 +52,8 @@ def test_detect_with_turns(client: TestClient) -> None:
 
 
 def test_health(client: TestClient) -> None:
-    print("\n=== 2. GET /detect/health ===")
-    body = client.get("/detect/health").json()
+    print("\n=== 2. GET /detect/timeDiff/health ===")
+    body = client.get("/detect/timeDiff/health").json()
     print(f"  {body}")
 
 
