@@ -9,6 +9,9 @@ scipy>=1.11
 soundfile>=0.12
 joblib>=1.4
 
+# resonance_stability family only (Praat formant/pitch tracking)
+praat-parselmouth>=0.4
+
 # scripts/plot_nst_features.py only
 matplotlib>=3.8
 

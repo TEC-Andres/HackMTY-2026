@@ -102,6 +102,9 @@ DETECTORS: dict[str, Detector] = {
     "natural_speech_termination": Detector(
         "natural_speech_termination", config.ARTIFACTS_DIR / "natural_speech_termination"
     ),
+    "resonance_stability": Detector(
+        "resonance_stability", config.ARTIFACTS_DIR / "resonance_stability"
+    ),
 }
 
 

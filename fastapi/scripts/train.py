@@ -38,6 +38,10 @@ from app.services.acoustic_features import (  # noqa: E402
     extract_acoustic_features,
 )
 from app.services.features import FEATURE_COLS, extract_features  # noqa: E402
+from app.services.resonance_features import (  # noqa: E402
+    RESONANCE_FEATURE_COLS,
+    extract_resonance_features,
+)
 
 #: Each feature family gets its own scaler + model, trained and scored independently
 #: (see app/services/classifier.py). /detect runs every family whose inputs are
@@ -47,6 +51,7 @@ from app.services.features import FEATURE_COLS, extract_features  # noqa: E402
 FAMILIES: dict[str, list[str]] = {
     "distribution_time": FEATURE_COLS,
     "natural_speech_termination": ACOUSTIC_FEATURE_COLS,
+    "resonance_stability": RESONANCE_FEATURE_COLS,
 }
 
 #: Which families get a Platt/sigmoid calibrator on top of their raw predict_proba.
@@ -71,6 +76,7 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
     rows: list[dict] = []
     skipped = 0
     skipped_acoustic = 0
+    skipped_resonance = 0
     for record in manifest.itertuples(index=False):
         turn_file = turns_dir / f"{record.anon_id}.json"
         if not turn_file.exists():
@@ -84,16 +90,24 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
 
         audio_file = audio_dir / f"{record.anon_id}.wav"
         acoustic = None
+        resonance = None
         if audio_file.exists():
             data, sr = sf.read(audio_file, dtype="float32", always_2d=True)
             caller = data[:, config.CALLER_CHANNEL].astype(np.float64)
             acoustic = extract_acoustic_features(
                 caller, sr, payload["turns"], channel=config.CALLER_CHANNEL
             )
+            resonance = extract_resonance_features(
+                caller, sr, payload["turns"], channel=config.CALLER_CHANNEL
+            )
         if acoustic is None or any(np.isnan(v) for v in acoustic.values()):
             skipped_acoustic += 1
         else:
             features.update(acoustic)
+        if resonance is None or any(np.isnan(v) for v in resonance.values()):
+            skipped_resonance += 1
+        else:
+            features.update(resonance)
 
         features["anon_id"] = record.anon_id
         features["label"] = record.label
@@ -102,7 +116,8 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
 
     print(
         f"Loaded {len(rows)} calls ({skipped} skipped for insufficient turns, "
-        f"{skipped_acoustic} with missing/insufficient audio for acoustic features)"
+        f"{skipped_acoustic} with missing/insufficient audio for acoustic features, "
+        f"{skipped_resonance} with missing/insufficient audio for resonance features)"
     )
     return pd.DataFrame(rows)
 
