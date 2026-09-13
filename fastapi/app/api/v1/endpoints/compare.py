@@ -49,7 +49,6 @@ from app.services.classifier import DETECTORS
 from app.services.features import extract_features
 from app.services.lexical import lexical_detector
 from app.services.report import render_comparison
-from app.services.report import render_comparison
 from app.services.resonance_features import extract_resonance_features
 from app.services.turns import (
     caller_audio_and_turns_from_wav,
