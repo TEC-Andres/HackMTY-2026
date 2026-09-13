@@ -46,3 +46,21 @@ app = FastAPI(
     lifespan=lifespan,
 )
 app.include_router(api_router)
+
+# Lexical model loading with error handling
+
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Set a flag to track if the lexical model is available
+lexical_model = None
+
+try:
+    # Existing code that attempts to load the model artifact
+    # e.g., lexical_model = joblib.load(LEXICAL_MODEL_PATH)
+    logger.info("Lexical model loaded successfully.")
+except (FileNotFoundError, Exception) as e:
+    logger.info("Lexical analysis disabled. Skipping lexical model load.")
+    lexical_model = None

@@ -1,22 +1,25 @@
-# FastAPI detection service (Altur / HackMTY 2026)
-fastapi>=0.115
-uvicorn[standard]>=0.30
-pydantic>=2.0
-numpy>=1.26
-pandas>=2.0
-scikit-learn>=1.4
-scipy>=1.11
-soundfile>=0.12
-joblib>=1.4
-
-# resonance_stability family only (Praat formant/pitch tracking)
-praat-parselmouth>=0.4
-
-# scripts/plot_nst_features.py only
-matplotlib>=3.8
-
-# Speech-to-Text / VAD framework (colab submodule).
-# The vendored framework in colab/hri/microservices/stt relies on the
-# upstream faster-whisper package for its Silero VAD implementation.
-faster-whisper>=1.1.0
-ctranslate2>=4.0.0,<5.0.0
+annotated-doc==0.0.5
+annotated-types==0.8.0
+anyio==4.15.1
+click==8.5.0
+cloudpickle==3.1.2
+fastapi==0.141.1
+h11==0.16.0
+idna==3.19
+joblib==1.6.0
+narwhals==2.26.0
+numpy==2.5.3
+pandas==3.0.5
+praat-parselmouth==0.4.7
+pydantic==2.13.5
+pydantic_core==2.46.5
+python-dateutil==2.9.0.post0
+scikit-learn==1.9.1
+scipy==1.18.1
+six==1.17.0
+starlette==1.6.0
+threadpoolctl==3.6.0
+typing-inspection==0.4.4
+typing_extensions==4.16.0
+uvicorn==0.52.4
+watchfiles==1.2.0
