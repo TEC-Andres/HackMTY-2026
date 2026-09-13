@@ -65,8 +65,10 @@ def vocoder_periodicity_score(raw_seg_f1s):
     hops), vs. total energy — averaged across segments."""
     scores = []
     for raw_f1, dt in raw_seg_f1s:
-        f1 = raw_f1[~np.isnan(raw_f1)]
-        if len(f1) < 30 or dt <= 0:
+        valid = ~np.isnan(raw_f1)
+        if valid.sum() < 30 or dt <= 0:
+            continue
+        f1 = np.interp(np.arange(len(raw_f1)), np.flatnonzero(valid), raw_f1[valid])
             continue
         d = np.diff(f1)
         d = d - d.mean()
