@@ -1,6 +1,7 @@
 """Timing-based detection endpoints.
 
 * ``POST /detect/timeDiff`` — turn-taking dynamics only.
+* ``POST /detect/NST`` — endpoint acoustics (natural_speech_termination) only.
 * ``POST /detect/STTLexicalAnalysis`` — side-by-side timing vs lexical detectors.
 
 The two signals answer the same question ("is the caller synthetic?") from
@@ -27,6 +28,8 @@ import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
+from app.api.v1.endpoints.detect import _depad_turns
+from app.core import config
 from app.schemas.compare import (
     CompareRequest,
     CompareResponse,
@@ -41,9 +44,11 @@ from app.schemas.detect import (
     DetectVerboseResponse,
     Turn,
 )
+from app.services.acoustic_features import extract_acoustic_features
 from app.services.classifier import DETECTORS
 from app.services.features import extract_features
 from app.services.lexical import lexical_detector
+from app.services.report import render_comparison
 from app.services.report import render_comparison
 from app.services.resonance_features import extract_resonance_features
 from app.services.turns import (
@@ -58,6 +63,8 @@ router = APIRouter()
 #: Turn-taking ("distribution_time") family, served by POST /detect/timeDiff.
 detector = DETECTORS["distribution_time"]
 
+#: Endpoint-acoustics ("natural_speech_termination") family, served by POST /detect/NST.
+nst_detector = DETECTORS["natural_speech_termination"]
 #: Formant/pitch-physics family - independent evidence from lexical/timing,
 #: added alongside them in /detect/STTLexicalAnalysis (see _run_resonance below).
 resonance_detector = DETECTORS["resonance_stability"]
@@ -201,6 +208,88 @@ def detect_time_diff(
 
 
 @router.post(
+    "/detect/NST",
+    response_model=None,
+    summary="Classify a caller using endpoint acoustics (natural_speech_termination)",
+    description=(
+        "Returns `{is_synthetic, confidence}`. Requires `audio_base64` (the raw "
+        "waveform, not just turn boundaries) since endpoint acoustics measure how "
+        "speech decays into silence at turn ends. Pass `?verbose=true` to also get "
+        "the caller turns and the acoustic feature vector."
+    ),
+)
+def detect_nst(
+    request: DetectRequest,
+    verbose: bool = Query(
+        False, description="Include turns and features alongside the verdict."
+    ),
+) -> DetectResponse | DetectVerboseResponse:
+    if not request.audio_base64:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "natural_speech_termination needs the raw waveform: pass "
+                "'audio_base64' (turns alone are not enough)."
+            ),
+        )
+
+    try:
+        caller_audio, sample_rate, turns = caller_audio_and_turns_from_wav(
+            request.audio_base64, request.channel
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - surface framework failures clearly
+        logger.exception("Turn extraction failed")
+        raise HTTPException(
+            status_code=500, detail=f"Turn extraction failed: {exc}"
+        ) from exc
+
+    # Live VAD pads turn boundaries; NST is boundary-anchored so it needs the
+    # pad undone first (see _depad_turns). The "whisper" turns mode uses its
+    # own internal VAD with unexposed padding, so it is left as-is.
+    acoustic_turns = (
+        _depad_turns(turns, config.VAD_SPEECH_PAD_MS / 1000)
+        if config.TURNS_MODE != "whisper"
+        else turns
+    )
+    features = extract_acoustic_features(
+        caller_audio, sample_rate, acoustic_turns, request.channel
+    )
+    if features is not None and any(np.isnan(v) for v in features.values()):
+        features = None
+    if features is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Not enough usable turn endings to classify (need clean, "
+            "non-clipped speech near a turn boundary).",
+        )
+
+    if not nst_detector.ready:
+        raise HTTPException(
+            status_code=503,
+            detail="Detector not loaded. Run scripts/train.py to build artifacts.",
+        )
+    is_synthetic, confidence, _probability = nst_detector.predict(features)
+    verdict = DetectResponse(
+        is_synthetic=is_synthetic, confidence=round(confidence, 4)
+    )
+    if not verbose:
+        return verdict
+
+    caller_turns = [
+        turn for turn in turns if int(turn.get("channel", -1)) == request.channel
+    ]
+    return DetectVerboseResponse(
+        **verdict.model_dump(),
+        channel=request.channel,
+        n_turns=len(caller_turns),
+        turns=[Turn(**turn) for turn in caller_turns],
+        features=features,
+    )
+
+
+@router.post(
     "/detect/STTLexicalAnalysis",
     response_model=None,
     summary="Ensemble verdict: timing + resonance, plus lexical (#21) when available",
@@ -314,6 +403,16 @@ def time_diff_health() -> dict[str, object]:
         "detector_ready": detector.ready,
         "features": len(detector.feature_cols),
         "val_auc": detector.metadata.get("val_auc"),
+    }
+
+
+@router.get("/detect/NST/health", summary="Service and model readiness")
+def nst_health() -> dict[str, object]:
+    return {
+        "status": "ok",
+        "detector_ready": nst_detector.ready,
+        "features": len(nst_detector.feature_cols),
+        "val_auc": nst_detector.metadata.get("val_auc"),
     }
 
 
