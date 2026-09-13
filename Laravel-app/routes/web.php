@@ -1,11 +1,17 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProsodyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Prosody: subir un archivo de audio individual y analizarlo (HackMTY-2026)
+Route::get('/subir_archivo', [ProsodyController::class, 'showUpload'])->name('prosody.upload');
+Route::post('/subir_archivo', [ProsodyController::class, 'analyze'])->name('prosody.analyze');
+Route::get('/subir_archivo/resultados', [ProsodyController::class, 'showResultados'])->name('prosody.resultados');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
