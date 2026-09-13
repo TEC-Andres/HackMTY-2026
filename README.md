@@ -1,7 +1,7 @@
 # HackMTY 2026
 
 <h1 align="center">
-  <img src="assets/png/Prodosy.png" width="60%">
+  <img src="assets/png/prodosy.png" width="60%">
 </h1>
 
 <!-- Summary -->
