@@ -35,7 +35,9 @@ const METRIC_ROWS = [
 ];
 
 export default function DetectDashboard() {
-    const [report, setReport] = useState(undefined); // undefined = loading, null = no report yet (404)
+    // null = nothing to show (never run, backend down, or lost mid-run) — always
+    // cleared on any failed fetch so a dead backend never leaves stale data on screen.
+    const [report, setReport] = useState(null);
     const [fetchError, setFetchError] = useState(null);
     const pollRef = useRef(null);
 
@@ -49,12 +51,14 @@ export default function DetectDashboard() {
             }
             const data = await res.json();
             if (!res.ok) {
+                setReport(null);
                 setFetchError(data?.message ?? `Error del servidor (${res.status}).`);
                 return;
             }
             setReport(data);
             setFetchError(null);
         } catch {
+            setReport(null);
             setFetchError('No se pudo conectar con el servidor.');
         }
     }, []);
@@ -65,31 +69,17 @@ export default function DetectDashboard() {
         return () => clearInterval(pollRef.current);
     }, [fetchReport]);
 
-    const isLoading = report === undefined && !fetchError;
     const hasReport = Boolean(report) && typeof report === 'object';
     const isRunning = hasReport && !report.summary;
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-emerald-100 px-4 py-8">
-            <div className="max-w-5xl mx-auto flex flex-col gap-6">
-                <header>
-                    <h1 className="text-2xl font-semibold text-slate-800">Detect — Evaluación por lotes</h1>
-                    <p className="text-sm text-slate-500">
-                        Resultados en vivo de{' '}
-                        <code className="bg-slate-100 px-1 rounded">scripts/check_endpoint.py</code> contra{' '}
-                        <code className="bg-slate-100 px-1 rounded">POST /detect</code>.
-                    </p>
-                </header>
+        <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-emerald-100">
+            <BrandBar />
 
-                {isLoading && <p className="text-slate-500">Cargando…</p>}
+            <div className="max-w-5xl mx-auto flex flex-col gap-6 px-4 py-8">
+                <Hero />
 
-                {fetchError && (
-                    <p className="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-4 py-3">
-                        {fetchError}
-                    </p>
-                )}
-
-                {!isLoading && !hasReport && !fetchError && <EmptyState />}
+                {!hasReport && <IdleState error={fetchError} />}
 
                 {hasReport && (
                     <>
@@ -119,19 +109,46 @@ export default function DetectDashboard() {
     );
 }
 
-function EmptyState() {
+function BrandBar() {
     return (
-        <div className="rounded-2xl bg-white/70 ring-1 ring-slate-200 p-6 flex flex-col gap-3">
-            <p className="text-slate-700 font-medium">Todavía no hay una evaluación reciente.</p>
-            <p className="text-sm text-slate-500">
-                Corre esto en tu terminal (desde <code className="bg-slate-100 px-1 rounded">fastapi/</code>, con el
-                servidor ya corriendo):
-            </p>
-            <pre className="text-xs bg-slate-900 text-slate-100 rounded-xl p-4 overflow-x-auto">
-{`python scripts/check_endpoint.py --url http://127.0.0.1:8001/detect \\
-    --audio-dir ../hackmty26/audio --n 50`}
-            </pre>
-            <p className="text-sm text-slate-500">Esta página se actualiza sola mientras corre.</p>
+        <header className="w-full bg-indigo-200/60 px-6 py-3 flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
+                <img src="/images/detect/blue.png" alt="" className="w-full h-full object-cover transform scale-125"  />
+            </div>
+            <span className="font-bold text-slate-800">Prosody</span>
+            <span className="mx-1 text-slate-400">|</span>
+            {/* logo.png already includes the "altur" wordmark, so no extra text here */}
+            <img src="/images/detect/logo.png" alt="altur" className="h-5 w-auto object-contain" />
+        </header>
+    );
+}
+
+function Hero() {
+    return (
+        <div className="flex flex-col items-center gap-6 pt-10 text-center">
+            <h1 className="text-5xl font-extrabold text-slate-900">Prosody</h1>
+            <div className="w-24 h-24 rounded-full">
+                <img
+                    src="/images/detect/blue.png"
+                    alt=""
+                    className="w-full h-full object-contain transform scale-[4.5]"
+                />
+            </div>
+        </div>
+    );
+}
+
+function IdleState({ error }) {
+    return (
+        <div className="flex flex-col items-center gap-6 py-6 text-center">
+            <div className="relative w-full max-w-xl">
+                <img src="/images/detect/square.png" alt="" className="block w-full" />
+                <p className="absolute inset-0 flex items-center justify-center px-10 text-center text-2xl font-extrabold text-slate-900">
+                    No hay ningún script en curso
+                </p>
+            </div>
+
+            {error && <p className="text-xs text-slate-400 max-w-md">{error}</p>}
         </div>
     );
 }
