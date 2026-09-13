@@ -41,3 +41,7 @@ Laravel-app/.vscode
 Laravel-app/database/*.sqlite
 
 payload.json
+
+resonance-detector/__pycache__/
+resonance-detector/*.csv
+resonance-detector/*_log.txt

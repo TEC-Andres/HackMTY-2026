@@ -1,0 +1,427 @@
+<title>Detector de Resonancia</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#EEF1EC;
+    --paper-raised:#E2E8DD;
+    --ink:#1C2420;
+    --ink-soft:#51584F;
+    --rule:#C7CFC0;
+    --human:#9C5E1E;
+    --human-soft:#9C5E1E1A;
+    --synthetic:#1B6E77;
+    --synthetic-soft:#1B6E771A;
+    --code-bg:#E2E8DD;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#12160F;
+      --paper-raised:#1B211A;
+      --ink:#E7EBE1;
+      --ink-soft:#A3AC9C;
+      --rule:#2E362B;
+      --human:#DE9A50;
+      --human-soft:#DE9A5026;
+      --synthetic:#57BEC6;
+      --synthetic-soft:#57BEC626;
+      --code-bg:#1B211A;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#12160F;
+    --paper-raised:#1B211A;
+    --ink:#E7EBE1;
+    --ink-soft:#A3AC9C;
+    --rule:#2E362B;
+    --human:#DE9A50;
+    --human-soft:#DE9A5026;
+    --synthetic:#57BEC6;
+    --synthetic-soft:#57BEC626;
+    --code-bg:#1B211A;
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    line-height:1.6;
+    font-size:16px;
+  }
+  ::selection{ background:var(--human-soft); }
+
+  .page{
+    max-width:760px;
+    margin:0 auto;
+    padding:56px 24px 90px;
+  }
+
+  h1,h2,h3{
+    font-family:"IBM Plex Serif", Georgia, serif;
+    text-wrap:balance;
+    line-height:1.25;
+    margin:0;
+  }
+
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; }
+
+  /* ---------- letterhead ---------- */
+  .letterhead{
+    border-bottom:2px solid var(--ink);
+    padding-bottom:22px;
+    margin-bottom:34px;
+  }
+  .eyebrow{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+  }
+  h1.title{ font-size:2.15rem; font-weight:700; margin-bottom:10px; }
+  .thesis{ font-size:1.05rem; color:var(--ink-soft); max-width:58ch; margin-bottom:18px; }
+  .meta-row{
+    display:flex; flex-wrap:wrap; gap:8px 22px;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12.5px; color:var(--ink-soft);
+  }
+  .meta-row b{ color:var(--ink); font-weight:600; }
+
+  /* ---------- tldr ---------- */
+  .tldr{
+    background:var(--paper-raised);
+    border:1px solid var(--rule);
+    border-left:4px solid var(--human);
+    border-radius:3px;
+    padding:20px 22px;
+    margin-bottom:44px;
+  }
+  .tldr-label{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:12px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:10px;
+  }
+  .tldr ul{ margin:0; padding-left:1.15em; }
+  .tldr li{ margin-bottom:6px; }
+  .tldr li:last-child{ margin-bottom:0; }
+
+  /* ---------- sections ---------- */
+  section{ margin-bottom:46px; }
+  h2{
+    font-size:1.4rem; font-weight:600;
+    margin-bottom:14px;
+    display:flex; align-items:baseline; gap:10px;
+  }
+  h2 .num{
+    font-family:"IBM Plex Mono", monospace;
+    font-size:.85rem; color:var(--ink-soft); font-weight:500;
+  }
+  p{ margin:0 0 14px; max-width:66ch; }
+  p:last-child{ margin-bottom:0; }
+
+  ul.plain{ padding-left:1.2em; margin:0 0 14px; }
+  ul.plain li{ margin-bottom:6px; }
+
+  /* ---------- feature comparison table ---------- */
+  .feature-row{
+    display:grid;
+    grid-template-columns:170px 1fr 46px;
+    align-items:center;
+    gap:14px;
+    padding:9px 0;
+    border-bottom:1px solid var(--rule);
+    font-size:14px;
+  }
+  .feature-row:first-child{ border-top:1px solid var(--rule); }
+  .feature-name{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; }
+  .bar-track{ background:var(--paper-raised); border-radius:2px; height:10px; position:relative; overflow:hidden; }
+  .bar-fill{ position:absolute; top:0; left:0; bottom:0; border-radius:2px; }
+  .auc-val{ font-family:"IBM Plex Mono", monospace; font-size:12.5px; text-align:right; font-variant-numeric:tabular-nums; }
+  .bar-baseline{ position:absolute; top:-2px; bottom:-2px; width:1px; background:var(--ink-soft); opacity:.5; }
+
+  /* ---------- pipeline ---------- */
+  .pipeline{
+    display:flex; align-items:stretch; gap:0;
+    overflow-x:auto;
+    padding-bottom:6px;
+    margin-bottom:8px;
+  }
+  .pstep{
+    flex:1 0 118px;
+    background:var(--paper-raised);
+    border:1px solid var(--rule);
+    border-radius:3px;
+    padding:14px 12px;
+    position:relative;
+  }
+  .pstep .pn{ font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--ink-soft); margin-bottom:6px; }
+  .pstep .pt{ font-weight:600; font-size:13.5px; margin-bottom:4px; }
+  .pstep .pd{ font-size:12px; color:var(--ink-soft); line-height:1.45; }
+  .parrow{
+    flex:0 0 22px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft); font-size:16px;
+  }
+
+  /* ---------- waveform comparison ---------- */
+  .wavebox{
+    border:1px solid var(--rule);
+    border-radius:3px;
+    background:var(--paper-raised);
+    padding:18px 20px 14px;
+    margin-bottom:8px;
+  }
+  .wave-panel{ margin-bottom:4px; }
+  .wave-label{
+    display:flex; align-items:center; gap:8px;
+    font-family:"IBM Plex Mono", monospace; font-size:12px;
+    letter-spacing:.05em; margin-bottom:2px;
+  }
+  .swatch{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .wave-caption{
+    font-size:12.5px; color:var(--ink-soft); margin-top:8px; padding-top:10px;
+    border-top:1px dashed var(--rule);
+  }
+  svg text{ font-family:"IBM Plex Mono", monospace; }
+
+  /* ---------- stat strip ---------- */
+  .stats{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:1px;
+    background:var(--rule);
+    border:1px solid var(--rule);
+    border-radius:3px;
+    overflow:hidden;
+    margin-bottom:8px;
+  }
+  .stat{ background:var(--paper); padding:16px 14px; }
+  .stat .v{ font-family:"IBM Plex Mono", monospace; font-size:1.5rem; font-weight:600; font-variant-numeric:tabular-nums; }
+  .stat .l{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+
+  /* ---------- code ---------- */
+  pre{
+    background:var(--code-bg);
+    border:1px solid var(--rule);
+    border-radius:3px;
+    padding:16px 18px;
+    overflow-x:auto;
+    font-family:"IBM Plex Mono", monospace;
+    font-size:13px;
+    line-height:1.6;
+    margin:0 0 14px;
+  }
+  code{ font-family:"IBM Plex Mono", monospace; font-size:.92em; background:var(--code-bg); padding:.1em .35em; border-radius:2px; }
+  pre code{ background:none; padding:0; }
+  .c-str{ color:var(--human); }
+  .c-com{ color:var(--ink-soft); font-style:italic; }
+  .c-key{ color:var(--synthetic); }
+
+  /* ---------- filemap ---------- */
+  table.filemap{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.filemap th{
+    text-align:left; font-family:"IBM Plex Mono",monospace; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft);
+    padding:0 10px 8px 0; border-bottom:1px solid var(--ink);
+  }
+  table.filemap td{ padding:9px 10px 9px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  table.filemap td:first-child{ font-family:"IBM Plex Mono",monospace; font-size:12.5px; white-space:nowrap; }
+
+  .callout{
+    border:1px solid var(--synthetic);
+    background:var(--synthetic-soft);
+    border-radius:3px;
+    padding:16px 18px;
+    margin-bottom:14px;
+  }
+  .callout b{ color:var(--synthetic); }
+
+  footer{
+    margin-top:60px; padding-top:18px; border-top:1px solid var(--rule);
+    font-family:"IBM Plex Mono", monospace; font-size:11.5px; color:var(--ink-soft);
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;
+  }
+
+  @media (max-width:520px){
+    .feature-row{ grid-template-columns:1fr; row-gap:4px; }
+    .auc-val{ text-align:left; }
+    .stats{ grid-template-columns:1fr; }
+  }
+</style>
+
+<div class="page">
+
+  <div class="letterhead">
+    <div class="eyebrow">Altur Challenge · HackMTY 2026 · Nota técnica interna</div>
+    <h1 class="title">Detector de Resonancia</h1>
+    <div class="thesis">Una señal para el ensamble humano-vs-IA basada en la física de cómo se produce la voz — nunca en lo que dice la persona.</div>
+    <div class="meta-row">
+      <span><b>Autora:</b> Catherine</span>
+      <span><b>Equipo:</b> Ethiel Favila · Isabel Mejia Franco · Andrés Rodríguez Cantú</span>
+      <span><b>Repo:</b> resonance-detector/</span>
+      <span><b>Estado:</b> validado, listo para integrar</span>
+    </div>
+  </div>
+
+  <div class="tldr">
+    <div class="tldr-label">Resumen para el equipo</div>
+    <ul>
+      <li>Mide 7 propiedades físicas de la voz del caller (formantes, tono, cómo cambian en el tiempo) y con eso predice si es humano o sintético.</li>
+      <li>Validado en <b>llamadas nunca vistas</b> durante el entrenamiento: <span class="mono">AUC 0.94</span>, accuracy 82%.</li>
+      <li>Encontramos algo contraintuitivo: <b>la voz sintética varía más, no menos</b>, que la humana — ver sección 2.</li>
+      <li>No usa el contenido de la llamada ni el <span class="mono">turns.json</span> del dataset en producción — trae su propio detector de voz (VAD).</li>
+      <li>Es <b>un signal más</b> del ensamble: expone <span class="mono">confidence</span> (0–1) para combinarse con el detector de ritmo de turnos que ya armó Andrés en <span class="mono">fastapi/</span>.</li>
+    </ul>
+  </div>
+
+  <section>
+    <h2><span class="num">01</span> Qué mide</h2>
+    <p>Cuando hablas, el aire vibra en tus cuerdas vocales y rebota dentro de tu garganta, boca y nariz — ese "tubo" amplifica ciertas frecuencias más que otras. Esos picos se llaman <b>formantes</b> (F1, F2). Un tracto vocal real es un tubo de carne que se mueve todo el tiempo: cambia de forma al hablar, se cansa, se seca. Un motor de síntesis de voz tiene que <i>simular</i> ese tubo matemáticamente.</p>
+    <p>Extraemos F1, F2 y el tono (F0) del canal del caller con Praat, cuadro a cuadro, y calculamos 7 números que describen <i>cómo se mueven</i> esas frecuencias a lo largo de la llamada — no qué dicen las palabras.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span> El hallazgo (y por qué cambia el plan original)</h2>
+    <p>La hipótesis de arranque era "si la resonancia se mantiene igual, es IA". Los datos reales de este dataset dicen <b>lo contrario</b>: el TTS que usan mete más temblor del que debería para sonar natural, y se pasa. Esta es la trayectoria real de F1 en los primeros ~3.5s de una llamada humana y una sintética (mismo eje: 80–900&nbsp;Hz):</p>
+
+    <div class="wavebox">
+      <div class="wave-panel">
+        <div class="wave-label"><span class="swatch" style="background:var(--human)"></span>HUMANA — call_04d682ac0cef</div>
+        <svg viewBox="0 0 668 170" width="100%" height="106" preserveAspectRatio="none" style="overflow:visible">
+          <g transform="translate(28,0)">
+            <line x1="0" y1="145.1" x2="640" y2="145.1" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="103.7" x2="640" y2="103.7" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="62.2" x2="640" y2="62.2" stroke="var(--rule)" stroke-width="1"/>
+            <polyline points="10.2,111.0 12.6,84.1 14.8,81.7 17.2,90.7 19.4,92.2 21.8,93.6 24.0,97.4 26.3,96.0 28.5,94.6 30.9,94.2 33.1,94.0 35.5,89.8 37.7,96.7 40.0,104.9 42.2,109.0 44.6,110.8 46.8,113.1 49.2,116.0 51.4,102.6 53.8,97.8 56.0,99.4 58.3,100.2 60.5,102.8 62.9,111.7 65.1,107.6 67.5,119.0 69.7,120.6 72.0,102.8 83.4,108.7 85.8,107.5 88.0,107.4 90.3,107.3 92.5,108.1 94.9,108.9 97.1,108.6 99.5,108.2 101.7,108.9 104.0,113.2 106.2,117.0 108.6,121.4 110.8,108.4 113.2,118.8 115.4,127.0 117.8,127.1 141.7,105.4 143.9,108.3 146.3,110.3 148.5,104.6 150.9,107.3 153.1,107.6 155.4,108.6 157.6,109.3 160.0,109.3 162.2,110.0 164.6,110.9 166.8,110.1 169.1,111.5 171.3,118.6 173.7,113.5 175.9,120.3 178.3,34.3 213.8,102.9 216.0,110.3 218.3,109.8 220.5,108.9 222.9,110.4 225.1,109.9 227.5,152.4 229.7,109.9 232.0,109.9 234.2,109.6 236.6,109.2 238.8,109.3 241.2,108.5 243.4,108.0 245.8,107.5 248.0,105.4 250.3,103.3 252.5,115.3 254.9,115.7 257.1,114.6 259.5,112.0 261.7,112.5 264.0,110.5 266.2,99.9 268.6,97.1 270.8,99.8 273.2,112.4 275.4,108.0 277.8,109.0 289.1,77.8 291.5,82.7 293.7,87.1 296.0,109.6 298.2,109.5 300.6,107.8 302.8,109.7 305.2,139.1 307.4,145.3 309.8,113.9 312.0,102.4 314.3,102.9 316.5,102.7 318.9,105.2 321.1,110.8 323.5,105.0 325.7,102.7 328.0,89.7 330.2,90.2 332.6,106.6 334.8,87.7 337.2,81.5 339.4,82.1 341.8,80.3 344.0,81.3 346.3,92.2 348.5,113.4 350.9,113.7 353.1,112.7 355.5,112.2 357.7,112.1 360.0,111.0 362.2,107.2 364.6,107.3 366.8,107.1 369.2,106.9 371.4,111.3 373.8,124.3 376.0,135.4 378.3,121.6 380.5,133.0 395.3,98.2 397.7,106.3 400.1,109.7 402.3,115.6 404.5,124.4 406.9,121.5 409.2,124.4 411.4,117.2 413.6,113.8"
+              fill="none" stroke="var(--human)" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+            <text x="-8" y="148" font-size="9" fill="var(--ink-soft)" text-anchor="end">200</text>
+            <text x="-8" y="107" font-size="9" fill="var(--ink-soft)" text-anchor="end">400</text>
+            <text x="-8" y="65" font-size="9" fill="var(--ink-soft)" text-anchor="end">600 Hz</text>
+          </g>
+        </svg>
+      </div>
+      <div class="wave-panel">
+        <div class="wave-label"><span class="swatch" style="background:var(--synthetic)"></span>SINTÉTICA — call_0181ce113ebe</div>
+        <svg viewBox="0 0 668 170" width="100%" height="106" preserveAspectRatio="none" style="overflow:visible">
+          <g transform="translate(28,0)">
+            <line x1="0" y1="145.1" x2="640" y2="145.1" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="103.7" x2="640" y2="103.7" stroke="var(--rule)" stroke-width="1"/>
+            <line x1="0" y1="62.2" x2="640" y2="62.2" stroke="var(--rule)" stroke-width="1"/>
+            <polyline points="4.6,62.0 6.8,63.8 9.1,59.9 11.3,61.4 13.7,60.2 15.9,82.0 18.3,99.1 20.5,108.8 22.9,61.0 25.1,54.4 27.4,72.3 29.6,89.9 32.0,3.4 34.2,11.1 36.6,59.4 38.8,70.3 52.5,92.5 54.9,77.6 57.1,74.8 59.4,73.5 61.6,70.3 64.0,70.7 66.2,72.5 68.6,71.6 70.8,72.9 74.2,122.8 76.6,121.8 78.8,121.8 81.2,119.6 83.4,83.6 85.8,75.1 88.0,85.2 90.3,89.5 92.5,114.0 94.9,126.7 118.9,97.4 121.1,86.5 123.4,163.8 125.6,94.4 128.0,118.4 130.2,78.0 132.6,79.5 134.8,9.2 137.1,55.2 139.3,78.3 141.7,59.2 143.9,62.8 152.0,87.7 154.3,86.8 156.5,92.0 158.9,98.9 161.1,97.6 163.5,90.7 165.7,96.3 168.0,102.3 278.9,125.4 281.1,134.9 283.4,135.0 285.6,133.9 288.0,133.4 290.4,130.1 292.6,123.4 294.8,125.6 297.1,124.2 299.5,122.5 301.7,122.0 303.9,126.1 309.8,93.1 312.0,86.4 314.3,90.2 316.5,84.5 318.9,73.3 380.5,118.5 394.2,116.0 396.6,112.7 398.8,113.6 401.2,102.4 403.4,110.3 405.8,105.8 408.0,106.1 410.3,112.8 412.5,114.4 414.9,116.7 427.5,122.1 429.7,97.1 431.9,87.1 434.3,49.4 436.5,45.1 438.9,52.8 441.1,45.7 443.4,36.9 445.8,34.3 448.0,135.2 450.2,134.7 452.6,133.7 454.9,131.2 457.1,117.0 459.3,94.9 461.7,89.5 464.1,76.1 466.3,113.3 483.5,97.3 485.7,81.4 488.0,87.6 490.2,96.9 492.6,104.3 494.8,106.8 512.0,111.4 514.2,103.3 516.6,97.2 518.9,97.4 521.1,115.0 544.0,54.3 546.4,36.5 548.6,64.1 550.8,40.3 553.1,43.3 555.5,64.3 557.7,85.0 559.9,78.1 562.3,69.0 564.7,45.4 566.9,36.3 569.1,33.8 571.4,36.7 582.9,78.9 585.1,79.4 587.3,84.4 589.7,85.9 592.1,84.6 594.3,149.0 596.5,101.7 598.9,115.7 601.2,119.9 603.4,121.6 605.6,124.5 608.0,126.6 610.4,126.1 612.6,125.2 614.8,120.8"
+              fill="none" stroke="var(--synthetic)" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/>
+            <text x="-8" y="148" font-size="9" fill="var(--ink-soft)" text-anchor="end">200</text>
+            <text x="-8" y="107" font-size="9" fill="var(--ink-soft)" text-anchor="end">400</text>
+            <text x="-8" y="65" font-size="9" fill="var(--ink-soft)" text-anchor="end">600 Hz</text>
+          </g>
+        </svg>
+      </div>
+      <div class="wave-caption">F1 real, filtrado solo a frames sonoros (lo mismo que ve el modelo) — ≈3.5s de la misma parte de cada llamada. La humana ronda 300–500&nbsp;Hz con un solo salto atípico; la sintética rebota constantemente entre 110 y 880&nbsp;Hz.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span> Las 7 métricas y qué tanto aportan solas</h2>
+    <p>Ordenadas por <span class="mono">AUC</span> individual (0.5 = no sirve, 1.0 = separa perfecto), medido en <b>282 llamadas de entrenamiento</b>:</p>
+
+    <div class="feature-row">
+      <div class="feature-name">F1_jitter</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:65.8%;background:var(--human)"></div></div>
+      <div class="auc-val">0.83</div>
+    </div>
+    <div class="feature-row">
+      <div class="feature-name">F0_F1_corr</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:49%;background:var(--synthetic)"></div></div>
+      <div class="auc-val">0.75</div>
+    </div>
+    <div class="feature-row">
+      <div class="feature-name">F1_cv</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:32.6%;background:var(--human)"></div></div>
+      <div class="auc-val">0.66</div>
+    </div>
+    <div class="feature-row">
+      <div class="feature-name">vocoder_periodicity</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:26.8%;background:var(--human)"></div></div>
+      <div class="auc-val">0.63</div>
+    </div>
+    <div class="feature-row">
+      <div class="feature-name">F1_drift_abs</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:24.8%;background:var(--synthetic)"></div></div>
+      <div class="auc-val">0.62</div>
+    </div>
+    <div class="feature-row">
+      <div class="feature-name">F2_cv</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:22.4%;background:var(--synthetic)"></div></div>
+      <div class="auc-val">0.61</div>
+    </div>
+    <div class="feature-row">
+      <div class="feature-name">F2_jitter</div>
+      <div class="bar-track"><div class="bar-baseline" style="left:0%"></div><div class="bar-fill" style="width:20.6%;background:var(--human)"></div></div>
+      <div class="auc-val">0.60</div>
+    </div>
+    <p style="margin-top:14px;font-size:13px;color:var(--ink-soft)">
+      <span class="swatch" style="background:var(--human);width:8px;height:8px"></span> valor alto → sospechoso&nbsp;&nbsp;
+      <span class="swatch" style="background:var(--synthetic);width:8px;height:8px"></span> valor bajo → sospechoso
+    </p>
+    <p>Ninguna por sí sola es suficiente. Una regresión logística aprende automáticamente cuánto pesar cada una (no adivinamos los pesos a mano) — sigue siendo 100% resonancia, solo que combinada.</p>
+
+    <div class="stats">
+      <div class="stat"><div class="v">0.94</div><div class="l">AUC combinado, en llamadas de personas nunca vistas</div></div>
+      <div class="stat"><div class="v">82%</div><div class="l">Accuracy en esa misma validación</div></div>
+      <div class="stat"><div class="v">7</div><div class="l">Features de entrada, todas de resonancia/tono</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span> El pipeline completo</h2>
+    <div class="pipeline">
+      <div class="pstep"><div class="pn">1</div><div class="pt">Audio crudo</div><div class="pd">WAV estéreo 8kHz, canal 0 = caller</div></div>
+      <div class="parrow">→</div>
+      <div class="pstep"><div class="pn">2</div><div class="pt">VAD propio</div><div class="pd">Encuentra dónde habla, sin depender de turns.json</div></div>
+      <div class="parrow">→</div>
+      <div class="pstep"><div class="pn">3</div><div class="pt">Praat</div><div class="pd">F1, F2, F0 cuadro a cuadro en frames sonoros</div></div>
+      <div class="parrow">→</div>
+      <div class="pstep"><div class="pn">4</div><div class="pt">7 métricas</div><div class="pd">Jitter, CV, correlación, deriva, periodicidad</div></div>
+      <div class="parrow">→</div>
+      <div class="pstep"><div class="pn">5</div><div class="pt">Modelo</div><div class="pd">Regresión logística → probabilidad 0–1</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span> Cómo conectarlo a /detect</h2>
+    <p>El módulo ya expone la función lista para que Andrés la llame desde el endpoint que ya armó en <span class="mono">fastapi/</span>:</p>
+    <pre><code><span class="c-key">from</span> detector <span class="c-key">import</span> detect_from_base64
+
+result = detect_from_base64(wav_b64_string)
+<span class="c-com"># {"is_synthetic": True, "confidence": 0.87}</span></code></pre>
+    <div class="callout">
+      <b>Nota para el equipo:</b> el <span class="mono">confidence</span> es el voto de <i>esta</i> señal, no el veredicto final. El detector de ritmo de turnos que ya está en <span class="mono">fastapi/app/services/features.py</span> mide algo totalmente distinto (silencios y cadencia entre turnos) — se combinan, no compiten.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">06</span> Límites honestos</h2>
+    <ul class="plain">
+      <li><b>Voces de IA nunca vistas:</b> el challenge dice que el set de jueces trae "callers y voces que no aparecen en ningún split". Si usan el mismo motor de TTS que este dataset, debería generalizar bien; si es uno distinto, no hay garantía.</li>
+      <li><b>Calibrado a telefonía 8kHz:</b> los umbrales se aprendieron con esa calidad de audio específica. Un audio de otra fidelidad puede correr, pero el número puede venir corrido.</li>
+      <li><b>Necesita habla real:</b> con menos de ~20 frames sonoros, cae a una respuesta neutral (confidence 0.5) en vez de forzar un veredicto sin datos.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2><span class="num">07</span> Dónde está cada cosa</h2>
+    <table class="filemap">
+      <tr><th>Archivo</th><th>Qué hace</th></tr>
+      <tr><td>detector.py</td><td>Punto de entrada real — esto es lo que se conecta al backend</td></tr>
+      <tr><td>resonance_core.py</td><td>Cálculo de las 7 métricas a partir de audio + segmentos</td></tr>
+      <tr><td>vad.py</td><td>Encuentra los segmentos de habla sin necesitar turns.json</td></tr>
+      <tr><td>model.joblib</td><td>Modelo ya entrenado (2KB) — no hay que reentrenar para usarlo</td></tr>
+      <tr><td>train_model.py</td><td>Reentrena si aparecen más datos</td></tr>
+      <tr><td>resonance_features.py</td><td>Genera el CSV de entrenamiento usando turns.json</td></tr>
+    </table>
+  </section>
+
+  <footer>
+    <span>resonance-detector/team_summary.html</span>
+    <span>HackMTY 2026 · branch catherine</span>
+  </footer>
+
+</div>
