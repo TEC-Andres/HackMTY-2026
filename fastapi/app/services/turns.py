@@ -145,10 +145,16 @@ def extract_turns_whisper(
     return turns
 
 
-def caller_turns_from_wav(
+def caller_audio_and_turns_from_wav(
     audio_base64: str, channel: int = config.CALLER_CHANNEL
-) -> list[dict[str, Any]]:
-    """Full pipeline: base64 stereo WAV -> caller-channel speech turns."""
+) -> tuple[np.ndarray, int, list[dict[str, Any]]]:
+    """Full pipeline: base64 stereo WAV -> (native-rate caller mono audio, sample_rate, turns).
+
+    Added for endpoint-acoustics feature extraction (Prosidy branch), which needs the
+    raw caller waveform alongside the turn boundaries. The audio is returned at its
+    native sample rate (unresampled) - turn timestamps are in seconds, so they apply
+    directly to it regardless of what sample rate VAD internally resampled to.
+    """
     data, sample_rate = decode_base64_wav(audio_base64)
     if channel >= data.shape[1]:
         raise ValueError(
@@ -157,8 +163,18 @@ def caller_turns_from_wav(
     mono = data[:, channel]
 
     if config.TURNS_MODE == "whisper":
-        return extract_turns_whisper(mono, sample_rate, channel)
-    return extract_turns_vad(mono, sample_rate, channel)
+        turns = extract_turns_whisper(mono, sample_rate, channel)
+    else:
+        turns = extract_turns_vad(mono, sample_rate, channel)
+    return mono, sample_rate, turns
+
+
+def caller_turns_from_wav(
+    audio_base64: str, channel: int = config.CALLER_CHANNEL
+) -> list[dict[str, Any]]:
+    """Full pipeline: base64 stereo WAV -> caller-channel speech turns."""
+    _, _, turns = caller_audio_and_turns_from_wav(audio_base64, channel)
+    return turns
 
 
 def warmup() -> None:

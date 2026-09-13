@@ -35,6 +35,13 @@ class DetectRequest(BaseModel):
         return self
 
 
+class FamilyResult(BaseModel):
+    """One feature family's own verdict (e.g. distribution_time, natural_speech_termination)."""
+
+    is_synthetic: bool
+    confidence: float = Field(..., ge=0.0, le=1.0)
+
+
 class DetectResponse(BaseModel):
     """Minimal challenge contract: ``POST /detect/timeDiff``."""
 

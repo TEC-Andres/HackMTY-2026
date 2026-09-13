@@ -1,27 +1,37 @@
-"""Classifier service: load persisted artifacts and score a feature vector."""
+"""Classifier service: independent per-feature-family detectors.
+
+Each feature family (turn-timing "distribution_time", endpoint-acoustics
+"natural_speech_termination", and any added later) is trained and scored
+independently - see ``scripts/train.py``. ``/detect`` runs every family whose
+inputs are available for a given request and reports each one's own verdict,
+rather than forcing a single combined score. Add a new family by giving it a
+subdirectory under ``app/artifacts/`` and registering it in ``DETECTORS``.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 import joblib
 import numpy as np
 
 from app.core import config
-from app.services.features import FEATURE_COLS
 
 logger = logging.getLogger(__name__)
 
 
 class Detector:
-    """Thin wrapper around the scaler + logistic-regression pair."""
+    """Thin wrapper around one family's scaler + logistic-regression pair."""
 
-    def __init__(self) -> None:
+    def __init__(self, name: str, artifacts_dir: Path) -> None:
+        self.name = name
+        self.artifacts_dir = artifacts_dir
         self.model: Any | None = None
         self.scaler: Any | None = None
-        self.feature_cols: list[str] = list(FEATURE_COLS)
+        self.feature_cols: list[str] = []
         self.metadata: dict[str, Any] = {}
 
     @property
@@ -30,38 +40,62 @@ class Detector:
 
     def load(self) -> "Detector":
         """Load artifacts from disk. Raises if they are missing."""
-        if not config.MODEL_PATH.exists() or not config.SCALER_PATH.exists():
+        model_path = self.artifacts_dir / "detector.joblib"
+        scaler_path = self.artifacts_dir / "scaler.joblib"
+        metadata_path = self.artifacts_dir / "metadata.json"
+        if not model_path.exists() or not scaler_path.exists() or not metadata_path.exists():
             raise FileNotFoundError(
-                "Detector artifacts not found. Run `python scripts/train.py` from "
-                f"the fastapi/ directory first. Looked in {config.ARTIFACTS_DIR}."
+                f"Artifacts for '{self.name}' not found in {self.artifacts_dir}. "
+                "Run `python scripts/train.py` from the fastapi/ directory first."
             )
-        self.model = joblib.load(config.MODEL_PATH)
-        self.scaler = joblib.load(config.SCALER_PATH)
-        if config.METADATA_PATH.exists():
-            self.metadata = json.loads(config.METADATA_PATH.read_text(encoding="utf-8"))
+        self.model = joblib.load(model_path)
+        self.scaler = joblib.load(scaler_path)
+        if metadata_path.exists():
+            self.metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             self.feature_cols = self.metadata.get("feature_cols", self.feature_cols)
         logger.info(
-            "Detector loaded | features=%d | val_auc=%s",
+            "Detector '%s' loaded | features=%d | val_auc=%s",
+            self.name,
             len(self.feature_cols),
             self.metadata.get("val_auc"),
         )
         return self
 
-    def predict(self, features: dict[str, float]) -> tuple[bool, float]:
-        """Return ``(is_synthetic, confidence)``.
+    def predict(self, features: dict[str, float]) -> tuple[bool, float, float]:
+        """Return ``(is_synthetic, confidence, proba_synthetic)``.
 
-        ``confidence`` is the model's probability for the predicted class, so
-        it always lies in ``[0.5, 1.0]``.
+        ``confidence`` is the model's probability for the predicted class, so it
+        always lies in ``[0.5, 1.0]``. ``proba_synthetic`` is the raw P(synthetic),
+        exposed separately so callers combining multiple families (see
+        ``app/api/v1/endpoints/detect.py``) work with a consistent scale rather
+        than each family's own "confidence in its own predicted class".
         """
         if not self.ready:
-            raise RuntimeError("Detector is not loaded")
+            raise RuntimeError(f"Detector '{self.name}' is not loaded")
 
         vector = np.array([features[c] for c in self.feature_cols], dtype=float)
         scaled = self.scaler.transform(vector.reshape(1, -1))
         proba_synthetic = float(self.model.predict_proba(scaled)[0, 1])
         is_synthetic = proba_synthetic >= 0.5
         confidence = proba_synthetic if is_synthetic else 1.0 - proba_synthetic
-        return is_synthetic, confidence
+        return is_synthetic, confidence, proba_synthetic
 
 
-detector = Detector()
+#: Registry of feature-family detectors served by /detect.
+DETECTORS: dict[str, Detector] = {
+    "distribution_time": Detector(
+        "distribution_time", config.ARTIFACTS_DIR / "distribution_time"
+    ),
+    "natural_speech_termination": Detector(
+        "natural_speech_termination", config.ARTIFACTS_DIR / "natural_speech_termination"
+    ),
+}
+
+
+def load_all() -> None:
+    """Load every registered detector, warning (not failing) on missing artifacts."""
+    for detector in DETECTORS.values():
+        try:
+            detector.load()
+        except FileNotFoundError as exc:
+            logger.warning("%s", exc)

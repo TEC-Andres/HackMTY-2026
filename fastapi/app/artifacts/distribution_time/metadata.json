@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-09-12T07:09:02.750337+00:00",
+  "trained_at": "2026-09-12T18:58:26.211256+00:00",
   "feature_cols": [
     "frac_gt5",
     "turn_dur_mean",
