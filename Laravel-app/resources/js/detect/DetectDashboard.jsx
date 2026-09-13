@@ -77,6 +77,8 @@ export default function DetectDashboard() {
             <BrandBar />
 
             <div className="max-w-5xl mx-auto flex flex-col gap-6 px-4 py-8">
+                <Hero />
+
                 {!hasReport && <IdleState error={fetchError} />}
 
                 {hasReport && (
@@ -121,18 +123,24 @@ function BrandBar() {
     );
 }
 
-function IdleState({ error }) {
+function Hero() {
     return (
-        <div className="flex flex-col items-center gap-6 py-16 text-center">
+        <div className="flex flex-col items-center gap-6 pt-10 text-center">
             <h1 className="text-5xl font-extrabold text-slate-900">Prosody</h1>
-            <div className="w-24 h-24 rounded-full ">
-                <img 
-                    src="/images/detect/blue.png" 
-                    alt="" 
-                    className="w-full h-full object-contain transform scale-[4.5]" 
+            <div className="w-24 h-24 rounded-full">
+                <img
+                    src="/images/detect/blue.png"
+                    alt=""
+                    className="w-full h-full object-contain transform scale-[4.5]"
                 />
             </div>
+        </div>
+    );
+}
 
+function IdleState({ error }) {
+    return (
+        <div className="flex flex-col items-center gap-6 py-6 text-center">
             <div className="relative w-full max-w-xl">
                 <img src="/images/detect/square.png" alt="" className="block w-full" />
                 <p className="absolute inset-0 flex items-center justify-center px-10 text-center text-2xl font-extrabold text-slate-900">
