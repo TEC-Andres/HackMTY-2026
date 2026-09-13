@@ -36,7 +36,7 @@ from app.schemas.detect import (
     DetectVerboseResponse,
     Turn,
 )
-from app.services.classifier import detector
+from app.services.classifier import DETECTORS
 from app.services.features import extract_features
 from app.services.lexical import lexical_detector
 from app.services.report import render_comparison
@@ -44,6 +44,9 @@ from app.services.turns import caller_turns_from_wav
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+#: Turn-taking ("distribution_time") family, served by POST /detect/timeDiff.
+detector = DETECTORS["distribution_time"]
 
 
 def _run_timing(request: CompareRequest) -> TimingResult | None:
@@ -57,8 +60,7 @@ def _run_timing(request: CompareRequest) -> TimingResult | None:
     if features is None or not detector.ready:
         return None
 
-    is_synthetic, confidence = detector.predict(features)
-    probability = confidence if is_synthetic else 1.0 - confidence
+    is_synthetic, confidence, probability = detector.predict(features)
     n_turns = len(
         [t for t in turns if int(t.get("channel", -1)) == request.channel]
     )
@@ -115,7 +117,7 @@ def detect_time_diff(
             status_code=503,
             detail="Detector not loaded. Run scripts/train.py to build artifacts.",
         )
-    is_synthetic, confidence = detector.predict(features)
+    is_synthetic, confidence, _probability = detector.predict(features)
     verdict = DetectResponse(
         is_synthetic=is_synthetic, confidence=round(confidence, 4)
     )
