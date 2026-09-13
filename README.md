@@ -81,12 +81,12 @@ During exploration we found a pattern: the synthetic user takes slightly longer 
 
 <table align="center">
   <tr>
-    <td align="center" width="50%">
+    <td align="center" width="60%">
       <img src="assets/png/3d-gaussian-dispersion-synthetic-vs-huma.png" width="100%">
       <br>
       <sub><b>Figure 1:</b> Synthetic vs. Human 3D Gaussian dispersion comparison.</sub>
     </td>
-    <td align="center" width="50%">
+    <td align="center" width="60%">
       <img src="assets/png/gaussianConfidence.png" width="100%">
       <br>
       <sub><b>Figure 2:</b> Gaussian confidence score distribution analysis.</sub>
