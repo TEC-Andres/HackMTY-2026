@@ -1,0 +1,33 @@
+{
+  "trained_at": "2026-09-13T00:26:18.995837+00:00",
+  "feature_cols": [
+    "abruptness_db_mean",
+    "tail_ms_mean",
+    "floor_db",
+    "voiced_frac_near_end_mean",
+    "echo_delay_ms_mean",
+    "abruptness_db_median",
+    "abruptness_db_std",
+    "abruptness_db_range",
+    "abruptness_db_iqr",
+    "tail_ms_median",
+    "tail_ms_std",
+    "tail_ms_range",
+    "tail_ms_iqr",
+    "voiced_frac_near_end_median",
+    "voiced_frac_near_end_std",
+    "voiced_frac_near_end_range",
+    "voiced_frac_near_end_iqr",
+    "echo_delay_ms_median",
+    "echo_delay_ms_std",
+    "echo_delay_ms_range",
+    "echo_delay_ms_iqr",
+    "hard_silence_flag"
+  ],
+  "train_auc": 0.9807,
+  "val_auc": 0.8617,
+  "train_calls": 282,
+  "val_calls": 71,
+  "model": "LogisticRegression(class_weight=balanced, C=1.0)",
+  "label_positive": "synthetic"
+}

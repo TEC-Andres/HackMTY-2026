@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-09-13T01:09:40.650813+00:00",
+  "trained_at": "2026-09-13T00:50:13.421607+00:00",
   "feature_cols": [
     "abruptness_db_mean",
     "tail_ms_mean",
@@ -13,7 +13,5 @@
   "train_calls": 282,
   "val_calls": 71,
   "model": "LogisticRegression(class_weight=balanced, C=1.0)",
-  "label_positive": "synthetic",
-  "calibrated": true,
-  "calibration_method": "platt_sigmoid_oof_5fold"
+  "label_positive": "synthetic"
 }
