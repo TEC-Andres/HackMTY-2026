@@ -71,16 +71,21 @@ def turns_for_channel(turns: Iterable[dict[str, Any]], channel: int = 0) -> list
 def _voiced_series(caller: np.ndarray, sr: int, turns_ch0: list[dict[str, Any]]):
     """Run Praat formant + pitch tracking over each turn, keep only voiced frames.
 
-    Returns concatenated (f0s, f1s, f2s) across all turns, plus a list of
-    per-turn raw (uniformly-spaced, unfiltered) F1 trajectories with their
-    true frame step, for the vocoder-periodicity spectral analysis - that
-    needs uniform spacing, which the voiced-only series (with gaps where
-    frames were dropped) doesn't have.
+    Returns concatenated (f0s, f1s, f2s) across all turns, plus:
+
+    * ``raw_turn_f1s``: per-turn raw (uniformly-spaced, unfiltered) F1
+      trajectories with their true frame step, for the vocoder-periodicity
+      spectral analysis - that needs uniform spacing, which the voiced-only
+      series (with gaps where frames were dropped) doesn't have.
+    * ``turn_f1s`` / ``turn_f2s``: per-turn voiced F1/F2 frames, so the jitter
+      features can difference within a turn instead of across turn boundaries.
     """
     f0s: list[float] = []
     f1s: list[float] = []
     f2s: list[float] = []
     raw_turn_f1s: list[tuple[np.ndarray, float]] = []
+    turn_f1s: list[np.ndarray] = []
+    turn_f2s: list[np.ndarray] = []
 
     for t in turns_ch0:
         start_s, end_s = float(t["start"]), float(t["end"])
@@ -98,6 +103,8 @@ def _voiced_series(caller: np.ndarray, sr: int, turns_ch0: list[dict[str, Any]])
         if len(ts) > 1:
             raw_turn_f1s.append((raw_f1, float(np.mean(np.diff(ts)))))
 
+        turn_f1: list[float] = []
+        turn_f2: list[float] = []
         for i, tt in enumerate(ts):
             f0 = pitch.get_value_at_time(tt)
             if not f0 or np.isnan(f0):
@@ -109,8 +116,21 @@ def _voiced_series(caller: np.ndarray, sr: int, turns_ch0: list[dict[str, Any]])
             f0s.append(f0)
             f1s.append(f1)
             f2s.append(f2)
+            turn_f1.append(f1)
+            turn_f2.append(f2)
 
-    return np.array(f0s), np.array(f1s), np.array(f2s), raw_turn_f1s
+        if turn_f1:
+            turn_f1s.append(np.array(turn_f1))
+            turn_f2s.append(np.array(turn_f2))
+
+    return (
+        np.array(f0s),
+        np.array(f1s),
+        np.array(f2s),
+        raw_turn_f1s,
+        turn_f1s,
+        turn_f2s,
+    )
 
 
 def _voiced_runs(raw_f1: np.ndarray) -> list[np.ndarray]:
@@ -132,6 +152,17 @@ def _voiced_runs(raw_f1: np.ndarray) -> list[np.ndarray]:
     if start is not None:
         runs.append(raw_f1[start:])
     return runs
+
+
+def _within_turn_diffs(turn_series: list[np.ndarray]) -> np.ndarray:
+    """Absolute frame-to-frame differences, computed independently per turn.
+
+    Differencing the cross-turn concatenation would add a spurious jump
+    between each turn's last frame and the next turn's first, so jitter would
+    reflect segmentation/silence rather than within-turn vocal-tract motion.
+    """
+    diffs = [np.abs(np.diff(series)) for series in turn_series if len(series) > 1]
+    return np.concatenate(diffs) if diffs else np.array([], dtype=float)
 
 
 def _vocoder_periodicity(raw_turn_f1s: list[tuple[np.ndarray, float]]) -> float:
@@ -178,12 +209,16 @@ def extract_resonance_features(
     if not ch0:
         return None
 
-    f0s, f1s, f2s, raw_turn_f1s = _voiced_series(caller, sr, ch0)
+    f0s, f1s, f2s, raw_turn_f1s, turn_f1s, turn_f2s = _voiced_series(
+        caller, sr, ch0
+    )
     if len(f1s) < _MIN_VOICED_FRAMES:
         return None
 
-    d1 = np.abs(np.diff(f1s))
-    d2 = np.abs(np.diff(f2s))
+    d1 = _within_turn_diffs(turn_f1s)
+    d2 = _within_turn_diffs(turn_f2s)
+    if len(d1) == 0 or len(d2) == 0:
+        return None
     third = max(len(f1s) // 3, 1)
     drift_f1 = float(f1s[-third:].mean() - f1s[:third].mean())
 
