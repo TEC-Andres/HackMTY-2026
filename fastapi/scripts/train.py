@@ -25,6 +25,7 @@ import pandas as pd
 import soundfile as sf
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
 # Make `app` importable when invoked as a script.
@@ -46,6 +47,15 @@ from app.services.features import FEATURE_COLS, extract_features  # noqa: E402
 FAMILIES: dict[str, list[str]] = {
     "distribution_time": FEATURE_COLS,
     "natural_speech_termination": ACOUSTIC_FEATURE_COLS,
+}
+
+#: Which families get a Platt/sigmoid calibrator on top of their raw predict_proba.
+#: distribution_time is untouched (False) - only natural_speech_termination's
+#: calibration was validated (see the calibration experiment: Brier 0.1437->0.1381,
+#: log loss 0.4531->0.4345, AUC and 0.5-threshold accuracy unchanged).
+CALIBRATE: dict[str, bool] = {
+    "distribution_time": False,
+    "natural_speech_termination": True,
 }
 
 
@@ -97,8 +107,36 @@ def build_dataset(hackmty26_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path) -> dict:
-    """Fit one family's scaler + model and persist it under ``out_dir``."""
+def _fit_platt_calibrator(raw_x: np.ndarray, y: np.ndarray, n_splits: int = 5) -> LogisticRegression:
+    """Fit a Platt/sigmoid calibrator from out-of-fold training predictions only.
+
+    Never touches the validation split, and never evaluates the final model's own
+    (in-sample) predictions - each fold's held-out predictions come from a model
+    that never saw that fold during fitting, matching the standard prevent-leakage
+    calibration procedure. The calibrator itself is a plain 1-feature
+    LogisticRegression on the raw probability, i.e. exactly Platt scaling
+    (calibrated = sigmoid(A * raw_proba + B)) via a fully public sklearn API.
+    """
+    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=0)
+    oof_proba = np.zeros(len(y))
+    for fold_train_idx, fold_hold_idx in cv.split(raw_x, y):
+        fold_scaler = StandardScaler().fit(raw_x[fold_train_idx])
+        fold_model = LogisticRegression(max_iter=5000, class_weight="balanced", C=1.0, random_state=0)
+        fold_model.fit(fold_scaler.transform(raw_x[fold_train_idx]), y[fold_train_idx])
+        oof_proba[fold_hold_idx] = fold_model.predict_proba(fold_scaler.transform(raw_x[fold_hold_idx]))[:, 1]
+    return LogisticRegression().fit(oof_proba.reshape(-1, 1), y)
+
+
+def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path, calibrate: bool = False) -> dict:
+    """Fit one family's scaler + model (+ optional Platt calibrator) and persist it.
+
+    When ``calibrate=True``: out-of-fold predictions are generated on the training
+    split only (via a fresh scaler+model per fold), a sigmoid calibrator is fit on
+    those OOF predictions, and only then is the final scaler+model refit on the
+    *complete* training split - the calibrator is applied on top of that final
+    model's output at inference time (see Detector.predict). The validation split
+    is never used to fit anything, calibrator included.
+    """
     family_df = df.copy()
     for col in feature_cols:
         if col not in family_df.columns:
@@ -112,9 +150,14 @@ def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path) -> di
 
     y_train = (train.label == "synthetic").astype(int).values
     y_val = (val.label == "synthetic").astype(int).values
+    raw_x_train = train[feature_cols].values
+
+    calibrator = None
+    if calibrate:
+        calibrator = _fit_platt_calibrator(raw_x_train, y_train)
 
     scaler = StandardScaler()
-    x_train = scaler.fit_transform(train[feature_cols].values)
+    x_train = scaler.fit_transform(raw_x_train)
     x_val = scaler.transform(val[feature_cols].values)
 
     model = LogisticRegression(
@@ -122,12 +165,20 @@ def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path) -> di
     )
     model.fit(x_train, y_train)
 
+    # AUC is rank-invariant under Platt's monotonic sigmoid, so it's reported from
+    # the raw model regardless of `calibrate` - calibration changes probability
+    # values, not their ranking.
     train_auc = roc_auc_score(y_train, model.predict_proba(x_train)[:, 1])
     val_auc = roc_auc_score(y_val, model.predict_proba(x_val)[:, 1])
 
     out_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, out_dir / "detector.joblib")
     joblib.dump(scaler, out_dir / "scaler.joblib")
+    calibrator_path = out_dir / "calibrator.joblib"
+    if calibrator is not None:
+        joblib.dump(calibrator, calibrator_path)
+    elif calibrator_path.exists():
+        calibrator_path.unlink()  # stale calibrator from a previous run with calibrate=True
     metadata = {
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "feature_cols": feature_cols,
@@ -137,6 +188,8 @@ def train_family(df: pd.DataFrame, feature_cols: list[str], out_dir: Path) -> di
         "val_calls": int(len(val)),
         "model": "LogisticRegression(class_weight=balanced, C=1.0)",
         "label_positive": "synthetic",
+        "calibrated": calibrate,
+        "calibration_method": "platt_sigmoid_oof_5fold" if calibrate else None,
     }
     (out_dir / "metadata.json").write_text(
         json.dumps(metadata, indent=2), encoding="utf-8"
@@ -163,12 +216,12 @@ def main() -> None:
     df = build_dataset(args.hackmty26_dir)
 
     for name, feature_cols in FAMILIES.items():
-        metadata = train_family(df, feature_cols, args.out_dir / name)
+        metadata = train_family(df, feature_cols, args.out_dir / name, calibrate=CALIBRATE.get(name, False))
         print(
             f"[{name}] train AUC: {metadata['train_auc']:.3f}  "
             f"val AUC: {metadata['val_auc']:.3f}  "
             f"(train={metadata['train_calls']} val={metadata['val_calls']} "
-            f"features={len(feature_cols)})"
+            f"features={len(feature_cols)} calibrated={metadata['calibrated']})"
         )
 
     print(f"Saved artifacts under {args.out_dir}/<family>/")
