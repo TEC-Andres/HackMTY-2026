@@ -59,6 +59,7 @@ RESONANCE_FEATURE_COLS: list[str] = [
 _MIN_SEGMENT_S = 0.3
 _MAX_FORMANT_HZ = 4000.0  # Nyquist at 8kHz is already 4kHz; telephone band only holds F1-F3.
 _MIN_VOICED_FRAMES = 20  # below this, per-frame stats are too noisy to trust
+_MIN_PERIODICITY_FRAMES = 30  # below this, the F1-derivative spectrum is too coarse
 
 
 def turns_for_channel(turns: Iterable[dict[str, Any]], channel: int = 0) -> list[dict[str, Any]]:
@@ -112,23 +113,47 @@ def _voiced_series(caller: np.ndarray, sr: int, turns_ch0: list[dict[str, Any]])
     return np.array(f0s), np.array(f1s), np.array(f2s), raw_turn_f1s
 
 
+def _voiced_runs(raw_f1: np.ndarray) -> list[np.ndarray]:
+    """Split a uniformly-sampled F1 trajectory at its unvoiced (NaN) gaps.
+
+    Dropping the NaNs and diffing the survivors would place samples seconds
+    apart next to each other while keeping the original frame step ``dt``,
+    manufacturing spurious periodicity. Keeping each contiguous voiced run
+    intact preserves the true spacing for the downstream FFT.
+    """
+    runs: list[np.ndarray] = []
+    start: int | None = None
+    for i, voiced in enumerate(~np.isnan(raw_f1)):
+        if voiced and start is None:
+            start = i
+        elif not voiced and start is not None:
+            runs.append(raw_f1[start:i])
+            start = None
+    if start is not None:
+        runs.append(raw_f1[start:])
+    return runs
+
+
 def _vocoder_periodicity(raw_turn_f1s: list[tuple[np.ndarray, float]]) -> float:
     """Energy fraction of each turn's F1-derivative spectrum concentrated near
     a neural vocoder's typical frame-hop rate (50-150Hz), vs. total energy -
-    averaged across turns. NaN when no turn has enough frames to judge."""
+    averaged across contiguous voiced runs. NaN when no run has enough frames
+    to judge."""
     scores: list[float] = []
     for raw_f1, dt in raw_turn_f1s:
-        f1 = raw_f1[~np.isnan(raw_f1)]
-        if len(f1) < 30 or dt <= 0:
+        if dt <= 0:
             continue
-        d = np.diff(f1)
-        d = d - d.mean()
-        spec = np.abs(np.fft.rfft(d))
-        freqs = np.fft.rfftfreq(len(d), d=dt)
-        band = (freqs > 50) & (freqs < 150)
-        if not band.any() or spec.sum() == 0:
-            continue
-        scores.append(float(spec[band].sum() / spec.sum()))
+        for f1 in _voiced_runs(raw_f1):
+            if len(f1) < _MIN_PERIODICITY_FRAMES:
+                continue
+            d = np.diff(f1)
+            d = d - d.mean()
+            spec = np.abs(np.fft.rfft(d))
+            freqs = np.fft.rfftfreq(len(d), d=dt)
+            band = (freqs > 50) & (freqs < 150)
+            if not band.any() or spec.sum() == 0:
+                continue
+            scores.append(float(spec[band].sum() / spec.sum()))
     return float(np.mean(scores)) if scores else float("nan")
 
 
