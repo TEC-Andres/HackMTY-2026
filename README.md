@@ -193,8 +193,10 @@ The caller channel is analyzed frame by frame around the end of each speech turn
 Rather than having three models working independently, we decided to merge them into a single model that would take their accuracy from their training data with their confidence level in order to decide whether an audio is human or synthetic. In order to maximise accuracy, we defined a formula that takes the decision, their accuracy, and their confidence level to give a final score. It surges the following inequality:
 
 $$
-\frac{\alpha\cdot\text{conf}_{\alpha}\cdot\text{acc}_{\alpha}}{\alpha+\beta+\gamma} < \frac{(\beta \cdot \text{conf}_{\beta}\cdot\text{acc}_{\beta})+(\gamma \cdot \text{conf}_{\gamma} \cdot \text{acc}_{\gamma})}{\alpha+\beta+\gamma} 
+\frac{\alpha\cdot\text{conf}_{\alpha}\cdot\text{acc}_{\alpha}}{\alpha+\beta+\gamma} > \frac{(\beta \cdot \text{conf}_{\beta}\cdot\text{acc}_{\beta})+(\gamma \cdot \text{conf}_{\gamma} \cdot \text{acc}_{\gamma})}{\alpha+\beta+\gamma} 
 $$
+
+Where \\( \alpha \\) is the model that's differing. \\( \beta \\) and \\( \gamma \\) are the two other models. \\( \text{conf} \\) is the confidence level of the model, and \\( \text{acc} \\) is the accuracy of the model.
 
 If the inequality is true, then the audio is classified as synthetic, otherwise it is classified as human. Using this principle, we are able to basically get the best of all words, we are able to verify the audio with multiple tests; allowing us to get a better accuracy than any of the models individually.
 
