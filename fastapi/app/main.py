@@ -25,11 +25,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-<<<<<<< HEAD
-# Load every registered feature-family detector + warm up the turn extractor.
-=======
     # Load every registered detector + warm up the turn extractor at startup.
->>>>>>> 497762d (Edited dependencies)
     load_all()
     try:
         lexical_detector.load()
