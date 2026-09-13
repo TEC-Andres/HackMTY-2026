@@ -4,6 +4,7 @@ anyio==4.15.1
 click==8.5.0
 cloudpickle==3.1.2
 fastapi==0.141.1
+faster-whisper==1.2.1
 h11==0.16.0
 idna==3.19
 joblib==1.6.0
@@ -17,6 +18,7 @@ python-dateutil==2.9.0.post0
 scikit-learn==1.9.1
 scipy==1.18.1
 six==1.17.0
+soundfile==0.14.0
 starlette==1.6.0
 threadpoolctl==3.6.0
 typing-inspection==0.4.4
