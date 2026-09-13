@@ -19,15 +19,45 @@ import argparse
 import base64
 import csv
 import json
+import os
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 from sklearn.metrics import brier_score_loss, roc_auc_score
 
 FASTAPI_DIR = Path(__file__).resolve().parents[1]
+DEFAULT_REPORT_PATH = FASTAPI_DIR / "reports" / "latest_run.json"
+
+
+def write_report(
+    report_path: Path,
+    url: str,
+    total: int,
+    results: list[dict],
+    summary: dict | None,
+) -> None:
+    """Persist the run so far as JSON for the web frontend (GET /detect/report).
+
+    Called after every row (partial, summary=None) and once more at the end
+    (summary filled in), so a page polling this file sees results appear live
+    alongside the terminal output above. Writes to a temp file then renames,
+    so a concurrent reader never sees a half-written file.
+    """
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "url": url,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "total": total,
+        "results": results,
+        "summary": summary,
+    }
+    tmp_path = report_path.with_suffix(".tmp")
+    tmp_path.write_text(json.dumps(payload, indent=2))
+    os.replace(tmp_path, report_path)
 
 
 def load_rows(manifest_path: Path, split: str, n: int | None) -> list[dict]:
@@ -74,6 +104,12 @@ def main() -> None:
         help="Path to manifest.csv (default: ../hackmty26/manifest.csv)",
     )
     parser.add_argument("--timeout", type=float, default=30.0, help="Per-request timeout in seconds")
+    parser.add_argument(
+        "--report-path",
+        type=Path,
+        default=DEFAULT_REPORT_PATH,
+        help="Where to write the JSON report for the web frontend (default: reports/latest_run.json)",
+    )
     args = parser.parse_args()
 
     rows = load_rows(args.manifest, args.split, args.n)
@@ -86,6 +122,7 @@ def main() -> None:
     latencies: list[float] = []
     answered = 0
     errors = 0
+    results: list[dict] = []
 
     for i, r in enumerate(rows, start=1):
         aid = r["anon_id"]
@@ -93,6 +130,8 @@ def main() -> None:
         if not wav_path.exists():
             print(f"{i}/{len(rows)} {aid:20s} SKIP (no audio file)")
             errors += 1
+            results.append({"anon_id": aid, "truth_label": r["label"], "status": "skip", "error": "no audio file"})
+            write_report(args.report_path, args.url, len(rows), results, None)
             continue
 
         audio_b64 = base64.b64encode(wav_path.read_bytes()).decode()
@@ -103,6 +142,10 @@ def main() -> None:
         if err is not None or body is None:
             print(f"{i}/{len(rows)} {aid:20s} truth={truth_label:9s} ERROR {err} {latency:.2f}s")
             errors += 1
+            results.append(
+                {"anon_id": aid, "truth_label": truth_label, "status": "error", "error": err, "latency_s": latency}
+            )
+            write_report(args.report_path, args.url, len(rows), results, None)
             continue
 
         answered += 1
@@ -120,6 +163,18 @@ def main() -> None:
             f"{i}/{len(rows)} {aid:20s} truth={truth_label:9s} got={got_label:9s} "
             f"{'ok' if ok else 'MISS':4s} conf={confidence:.2f} {latency:.2f}s"
         )
+        results.append(
+            {
+                "anon_id": aid,
+                "truth_label": truth_label,
+                "status": "ok",
+                "is_synthetic": got_synth,
+                "confidence": confidence,
+                "correct": ok,
+                "latency_s": latency,
+            }
+        )
+        write_report(args.report_path, args.url, len(rows), results, None)
 
     if not y_true:
         raise SystemExit("\nNo successful calls to aggregate.")
@@ -149,6 +204,26 @@ def main() -> None:
     print(f"  balanced_accuracy: {balanced_accuracy:.3f}")
     print(f"  auc: {auc:.3f}")
     print(f"  brier: {brier:.3f}")
+
+    write_report(
+        args.report_path,
+        args.url,
+        len(rows),
+        results,
+        summary={
+            "calls": len(rows),
+            "answered": answered,
+            "errors": errors,
+            "accuracy": float(correct.mean()),
+            "tpr_synthetic": float(tpr_synthetic),
+            "tnr_human": float(tnr_human),
+            "mean_latency_s": float(np.mean(latencies)),
+            "max_latency_s": float(np.max(latencies)),
+            "balanced_accuracy": float(balanced_accuracy),
+            "auc": float(auc),
+            "brier": float(brier),
+        },
+    )
 
 
 if __name__ == "__main__":
