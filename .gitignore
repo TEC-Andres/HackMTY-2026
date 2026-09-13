@@ -28,4 +28,16 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 _playingGround/
+
 opencode.json
+audio/
+
+Laravel-app/bootstrap/cache/
+Laravel-app/storage/*.key
+Laravel-app/storage/pail
+Laravel-app/vendor
+Laravel-app/.phpunit.cache
+Laravel-app/.vscode
+Laravel-app/database/*.sqlite
+
+payload.json
