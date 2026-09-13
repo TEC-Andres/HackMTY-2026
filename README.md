@@ -37,10 +37,10 @@ If `YOUR-MODEL-NAME` is left in blank, a combination of all the models weighted 
 The available models are:
 | Model Name | AUC |
 | --- | --- |
-| timeDiff | 0.720 |
-| resonancia | 0.760 |
-| STTLexicalAnalysis | 0.750 |
-| NST | 0.803 |
+| timeDiff | 0.775 |
+| resonancia | 0.789 |
+| NST | 0.831 |
+| acousticEnsemble | 0.930 |
 
 ## Documentaion
 
