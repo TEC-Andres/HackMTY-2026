@@ -5,9 +5,26 @@
 </h1>
 
 <!-- Summary -->
-<p align="center">Prodosy - Detecting Synthetic Calls. <i>By La Birriería 94</i></p>
+<p align="center"><br>Prodosy</br> — Detecting Synthetic Calls. <i>By La Birriería 94</i></p>
 
 ## Table of contents
+- [Getting started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+    - [Dependencies](#dependencies)
+    - [Dataset](#dataset)
+    - [Environment Variables](#environment-variables)
+- [Local Setup](#local-setup)
+    - [Git settings](#git-settings)
+- [Execute & test](#execute--test)
+- [Justification of the models](#justification-of-the-models)
+    - [Time difference & distribution](#time-difference--distribution-detecttimediff)
+    - [Resonance](#resonance-detectresonance)
+    - [Natural Speech Termination](#natural-speech-termination-detectnst)
+    - [Acoustic Ensemble](#acoustic-ensemble-detect)
+- [Results](#results)
+- [Team members](#team-members)
+- [License](#license)
 
 ## Getting started
 ### Prerequisites
@@ -47,8 +64,8 @@ In order to run the project, you will need to create a `.env` file on root direc
 cp .env.example .env
 ```
 
-### Local Setup
-#### Git settings
+## Local Setup
+### Git settings
 In order to properly push, you'll need to run the following git script in order to not accidentally screw up with the rulesets.
 ```sh
 git config core.hooksPath .githooks
@@ -107,6 +124,8 @@ It measures 7 physical properties of the voice (formants, pitch, and how they ch
 **How is it measured?**
 Using Praat, the formants **F1** and **F2** together with the pitch (**F0**) of the caller channel are tracked frame by frame. From those tracks, 7 numbers are computed that describe how those frequencies move across the whole call. Each metric receives a weight from a logistic regression that automatically learns how much to trust it:
 
+<div align="center">
+
 | Metric | Weight | Suspicious when |
 | --- | --- | --- |
 | `F1_jitter` | 0.83 | high |
@@ -116,6 +135,8 @@ Using Praat, the formants **F1** and **F2** together with the pitch (**F0**) of 
 | `F1_drift_abs` | 0.62 | low |
 | `F2_cv` | 0.61 | low |
 | `F2_jitter` | 0.60 | high |
+
+</div>
 
 A logistic regression is then trained on top of these features, learning the optimal weight for each one instead of relying on hand-tuned thresholds.
 
@@ -155,6 +176,8 @@ The caller channel is analyzed frame by frame around the end of each speech turn
 
 **The 6 metrics** (value = standardized coefficient of the final model; the sign indicates the real direction of suspicion, not a univariate assumption):
 
+<div align="center">
+
 | Metric | Coeff. | Suspicious when | Notes |
 | --- | --- | --- | --- |
 | `floor_db` | +2.68 | high | Noisier / less silent line between turns → more likely synthetic. **Highest generalization risk of the set:** its correlation with the model output (0.44) is stronger than its real correlation with the true label (0.21). Documented but unresolved. |
@@ -163,6 +186,8 @@ The caller channel is analyzed frame by frame around the end of each speech turn
 | `tail_ms_mean` | −1.00 | low | Reaches silence almost instantly after finishing speaking. |
 | `echo_delay_ms_mean` | +0.80 | high | Larger echo/reverberation delay. |
 | `voiced_frac_near_end_mean` | −0.79 | low | Lower according to the joint model. **Careful:** in isolation this metric is *higher* in synthetic audio (0.75 vs. 0.66 human), but in the final model — combined with the other 5 — its coefficient flips sign due to correlation with `range`. It is the only one of the 6 with this univariate-vs-model inconsistency, worth mentioning when comparing cards across teams. |
+
+</div>
 
 ### Acoustic Ensemble `/detect/`
 Rather than having three models working independently, we decided to merge them into a single model that would take their accuracy from their training data with their confidence level in order to decide whether an audio is human or synthetic. In order to maximise accuracy, we defined a formula that takes the decision, their accuracy, and their confidence level to give a final score. It surges the following inequality:
@@ -176,12 +201,16 @@ If the inequality is true, then the audio is classified as synthetic, otherwise 
 ### Results
 The following table shows the accuracy of each model individually and the accuracy of the ensemble model.
 
+<div align="center">
+
 | Model Name | Accuracy |
 | --- | --- |
 | timeDiff | 0.775 |
 | resonance | 0.789 |
 | NST | 0.831 |
 | acousticEnsemble | 0.930 |
+
+</div>
 
 > [!NOTE]
 > Based upon running the endpoint with `--n 71` and `--audio-dir ~\HackMTY-2026\audio\` on the `check_endpoint.py` script.
@@ -190,12 +219,16 @@ Using each individual model, we are able to enscope more variables in order to g
 
 ## Team members
 
+<div align="center">
+
 | Name | GitHub | Role |
 | --- | --- | --- |
 | Ethiel Favila | [@efavilaa](https://github.com/efavilaa) | `HRI (NST,ensemble), Integration, Backend & Frontend` |
 | Isabel Mejia Franco | [@IsaMejiaF](https://github.com/IsaMejiaF ) | `Frontend & Web Design` |
 | Catherine | [catherinegd7](https://github.com/catherinegd7) | `HRI (resonance, ensemble), Integration & Backend` |
 | Andrés Rodríguez Cantú | [@TEC-Andres](https://github.com/TEC-Andres) | `HRI (timeDiff, ensemble), Integration & Backend` |
+
+</div>
 
 ## License
 All code in this repository is licensed under the [MIT License](LICENSE). The dataset is licensed under the [CC BY-NC 4.0 License](https://creativecommons.org/licenses/by-nc/4.0/).
