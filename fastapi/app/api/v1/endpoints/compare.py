@@ -93,7 +93,7 @@ def _run_timing(request: CompareRequest) -> TimingResult | None:
 def _run_resonance(request: CompareRequest) -> ResonanceResult | None:
     """Best-effort formant/pitch verdict; ``None`` when it cannot be computed.
 
-    Unlike timing/lexical, this needs the raw caller waveform (Praat fformant
+    Unlike timing/lexical, this needs the raw caller waveform (Praat formant
     tracking), not just turn boundaries - CompareRequest.audio_base64 is
     required, so it's always available here regardless of whether the caller
     also supplied precomputed turns.
