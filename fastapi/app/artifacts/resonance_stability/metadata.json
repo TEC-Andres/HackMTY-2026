@@ -1,0 +1,18 @@
+{
+  "trained_at": "2026-09-13T02:21:57.981955+00:00",
+  "feature_cols": [
+    "F1_cv",
+    "F2_cv",
+    "F1_jitter",
+    "F2_jitter",
+    "F0_F1_corr",
+    "F1_drift_abs",
+    "vocoder_periodicity"
+  ],
+  "train_auc": 0.9636,
+  "val_auc": 0.942,
+  "train_calls": 282,
+  "val_calls": 71,
+  "model": "LogisticRegression(class_weight=balanced, C=1.0)",
+  "label_positive": "synthetic"
+}

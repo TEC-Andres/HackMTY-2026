@@ -43,6 +43,12 @@ class TimingResult(DetectorResult):
     n_turns: int = Field(..., description="Caller turns used by the timing model")
 
 
+class ResonanceResult(DetectorResult):
+    """Formant/pitch-physics verdict; same shape as the base result (no extra
+    diagnostics, unlike TimingResult/LexicalResult - see resonance_features.py
+    for what the underlying 7 features mean)."""
+
+
 class LexicalResult(DetectorResult):
     plsda_score: float
     n_segments: int
@@ -60,6 +66,13 @@ class CompareResponse(BaseModel):
         "the timing model is not loaded.",
     )
     lexical: LexicalResult
+    resonance: ResonanceResult | None = Field(
+        default=None,
+        description="Formant/pitch-physics detector; null if the clip had too "
+        "little voiced signal or the resonance model is not loaded. Not "
+        "included in `agreement` (kept as timing-vs-lexical) or in the "
+        "format=text report - only in ensemble and this field.",
+    )
     agreement: bool | None = Field(
         default=None,
         description="Whether both detectors predicted the same class; null if "

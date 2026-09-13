@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 
+import numpy as np
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 
@@ -28,6 +29,7 @@ from app.schemas.compare import (
     CompareResponse,
     DetectorResult,
     LexicalResult,
+    ResonanceResult,
     TimingResult,
 )
 from app.schemas.detect import (
@@ -40,13 +42,22 @@ from app.services.classifier import DETECTORS
 from app.services.features import extract_features
 from app.services.lexical import lexical_detector
 from app.services.report import render_comparison
-from app.services.turns import caller_turns_from_wav
+from app.services.resonance_features import extract_resonance_features
+from app.services.turns import (
+    caller_audio_and_turns_from_wav,
+    caller_turns_from_wav,
+    decode_base64_wav,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 #: Turn-taking ("distribution_time") family, served by POST /detect/timeDiff.
 detector = DETECTORS["distribution_time"]
+
+#: Formant/pitch-physics family - independent evidence from lexical/timing,
+#: added alongside them in /detect/STTLexicalAnalysis (see _run_resonance below).
+resonance_detector = DETECTORS["resonance_stability"]
 
 
 def _run_timing(request: CompareRequest) -> TimingResult | None:
@@ -69,6 +80,39 @@ def _run_timing(request: CompareRequest) -> TimingResult | None:
         confidence=round(confidence, 4),
         synthetic_probability=round(probability, 4),
         n_turns=n_turns,
+    )
+
+
+def _run_resonance(request: CompareRequest) -> ResonanceResult | None:
+    """Best-effort formant/pitch verdict; ``None`` when it cannot be computed.
+
+    Unlike timing/lexical, this needs the raw caller waveform (Praat formant
+    tracking), not just turn boundaries - CompareRequest.audio_base64 is
+    required, so it's always available here regardless of whether the caller
+    also supplied precomputed turns.
+    """
+    if request.turns is not None:
+        data, sample_rate = decode_base64_wav(request.audio_base64)
+        caller_audio = data[:, request.channel]
+        turns = [turn.model_dump() for turn in request.turns]
+    else:
+        caller_audio, sample_rate, turns = caller_audio_and_turns_from_wav(
+            request.audio_base64, request.channel
+        )
+
+    features = extract_resonance_features(
+        caller_audio, sample_rate, turns, request.channel
+    )
+    if features is None or any(np.isnan(v) for v in features.values()):
+        return None
+    if not resonance_detector.ready:
+        return None
+
+    is_synthetic, confidence, probability = resonance_detector.predict(features)
+    return ResonanceResult(
+        is_synthetic=is_synthetic,
+        confidence=round(confidence, 4),
+        synthetic_probability=round(probability, 4),
     )
 
 
@@ -191,10 +235,24 @@ def compare(
 
     lexical = LexicalResult(**lexical_payload)
 
+    # ── resonance detector (best effort, like timing) ──────────────────────
+    resonance: ResonanceResult | None
+    try:
+        resonance = _run_resonance(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001 - a resonance failure must not kill lexical
+        logger.exception("Resonance detector failed")
+        resonance = None
+
     # ── comparison + mean-probability ensemble ─────────────────────────────
+    # `agreement` stays timing-vs-lexical only (unchanged) - resonance only
+    # joins the probability average below.
     probabilities = [lexical.synthetic_probability]
     if timing is not None:
         probabilities.append(timing.synthetic_probability)
+    if resonance is not None:
+        probabilities.append(resonance.synthetic_probability)
     ensemble_probability = sum(probabilities) / len(probabilities)
     ensemble = DetectorResult(
         is_synthetic=ensemble_probability >= 0.5,
@@ -219,6 +277,7 @@ def compare(
     return CompareResponse(
         timing=timing,
         lexical=lexical,
+        resonance=resonance,
         agreement=agreement,
         ensemble=ensemble,
         report=report,
@@ -244,4 +303,6 @@ def compare_health() -> dict[str, object]:
         "lexical_ready": lexical_detector.ready,
         "lexical_cv_auc": lexical_detector.metadata.get("plsda_cv_auc_mean"),
         "lexical_pls_components": lexical_detector.metadata.get("pls_components"),
+        "resonance_ready": resonance_detector.ready,
+        "resonance_val_auc": resonance_detector.metadata.get("val_auc"),
     }
