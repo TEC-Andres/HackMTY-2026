@@ -1,4 +1,4 @@
-"""Pydantic request/response models for ``POST /detect``."""
+"""Pydantic request/response models for ``POST /detect/timeDiff``."""
 
 from __future__ import annotations
 
@@ -43,13 +43,18 @@ class FamilyResult(BaseModel):
 
 
 class DetectResponse(BaseModel):
-    """``is_synthetic``/``confidence`` are the required challenge contract fields -
-    currently a temporary equal-weight average of whichever families ran (see
-    ``detect.py``), until the team decides how to weight families against each
-    other. ``breakdown`` carries each family's own independent verdict for
-    development/testing - it's additive and safe for the grader to ignore.
-    """
+    """Minimal challenge contract: ``POST /detect/timeDiff``."""
 
     is_synthetic: bool
     confidence: float = Field(..., ge=0.0, le=1.0)
-    breakdown: dict[str, FamilyResult] = Field(default_factory=dict)
+
+
+class DetectVerboseResponse(DetectResponse):
+    """``?verbose=true`` payload: the minimal verdict plus the evidence."""
+
+    channel: int = Field(..., description="Caller channel that was analysed.")
+    n_turns: int = Field(..., description="Caller turns used by the timing model.")
+    turns: list[Turn] = Field(..., description="Caller turns (seconds from start).")
+    features: dict[str, float] = Field(
+        ..., description="Turn-taking feature vector fed to the classifier."
+    )

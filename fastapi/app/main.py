@@ -12,7 +12,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.v1.router import api_router
-from app.services.classifier import load_all
+from app.services.classifier import detector
+from app.services.lexical import lexical_detector
 from app.services.turns import warmup
 
 logging.basicConfig(
@@ -24,16 +25,27 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Load every registered feature-family detector + warm up the turn extractor.
-    load_all()
+    # Load the model + warm up the turn extractor at startup.
+    try:
+        detector.load()
+    except FileNotFoundError as exc:
+        logger.warning("%s", exc)
+    try:
+        lexical_detector.load()
+    except FileNotFoundError as exc:
+        logger.warning("%s", exc)
     warmup()
     yield
 
 
 app = FastAPI(
     title="HackMTY 2026 — Caller Detection API",
-    description="POST /detect classifies a caller as human or synthetic.",
-    version="0.1.0",
+    description=(
+        "POST /detect/timeDiff classifies a caller as human or synthetic. "
+        "POST /detect/STTLexicalAnalysis runs the turn-taking detector against "
+        "the issue #21 lexical detector on the same clip."
+    ),
+    version="0.2.0",
     lifespan=lifespan,
 )
 app.include_router(api_router)

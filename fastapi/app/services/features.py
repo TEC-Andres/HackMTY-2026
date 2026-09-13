@@ -4,7 +4,7 @@ This is a direct port of the feature extraction that lives in
 ``_playingGround/minMaxConfidence.py`` (lines 26-99). The only change is that
 it is now a pure, reusable function instead of top-level script code, so the
 same maths can be used both to train the offline model and to score a live
-``POST /detect`` request.
+``POST /detect/timeDiff`` request.
 
 The intuition: a synthetic caller produces turn-taking dynamics (gaps between
 caller utterances, their regularity, reaction to the agent) that differ from a
