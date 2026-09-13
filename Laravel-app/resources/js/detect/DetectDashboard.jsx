@@ -110,8 +110,8 @@ export default function DetectDashboard() {
 function BrandBar() {
     return (
         <header className="w-full bg-indigo-200/60 px-6 py-3 flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full overflow-hidden shrink-0">
-                <img src="/images/detect/blue.png" alt="" className="w-full h-full object-cover" />
+            <div className="w-8 h-8 rounded-full overflow-hidden shrink-0">
+                <img src="/images/detect/blue.png" alt="" className="w-full h-full object-cover transform scale-125"  />
             </div>
             <span className="font-bold text-slate-800">Prosody</span>
             <span className="mx-1 text-slate-400">|</span>
@@ -125,8 +125,12 @@ function IdleState({ error }) {
     return (
         <div className="flex flex-col items-center gap-6 py-16 text-center">
             <h1 className="text-5xl font-extrabold text-slate-900">Prosody</h1>
-            <div className="w-24 h-24 rounded-full overflow-hidden">
-                <img src="/images/detect/blue.png" alt="" className="w-full h-full object-cover" />
+            <div className="w-24 h-24 rounded-full ">
+                <img 
+                    src="/images/detect/blue.png" 
+                    alt="" 
+                    className="w-full h-full object-contain transform scale-[4.5]" 
+                />
             </div>
 
             <div className="relative w-full max-w-xl">
